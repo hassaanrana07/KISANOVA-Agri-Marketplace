@@ -1,0 +1,22 @@
+{
+  "name": "kisanova",
+  "version": "1.0.0",
+  "description": "Kisanova — Full-Stack Agricultural Marketplace",
+  "scripts": {
+    "seed": "npm --prefix backend run seed",
+    "test": "node backend/test_api.js",
+    "start:backend": "npm --prefix backend start",
+    "start:frontend": "npm --prefix frontend dev",
+    "build:frontend": "npm --prefix frontend run build"
+  },
+  "keywords": [
+    "agricultural",
+    "marketplace",
+    "kisanova",
+    "react",
+    "express",
+    "mysql"
+  ],
+  "author": "Kisanova Team",
+  "license": "MIT"
+}
