@@ -19,16 +19,21 @@ const getDashboardMetrics = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Seller profile not found.' });
     }
 
-    // Total sales revenue from seller_orders where payment was made
-    const [salesResult] = await pool.query(
-      `SELECT COALESCE(SUM(so.subtotal), 0) as total_revenue, COUNT(DISTINCT so.id) as total_orders
+    // 1. Summary Cards Aggregations
+    const [statsResult] = await pool.query(
+      `SELECT 
+         COUNT(so.id) as total_orders,
+         COALESCE(SUM(CASE WHEN so.status = 'PENDING' THEN 1 ELSE 0 END), 0) as pending_orders,
+         COALESCE(SUM(CASE WHEN so.status = 'DELIVERED' THEN 1 ELSE 0 END), 0) as completed_orders,
+         COALESCE(SUM(CASE WHEN so.payment_status = 'PAID' THEN so.subtotal ELSE 0 END), 0) as total_revenue,
+         COALESCE(SUM(so.amount_paid), 0) as paid_amount,
+         COALESCE(SUM(CASE WHEN so.payment_status = 'PENDING' THEN so.amount_due ELSE 0 END), 0) as pending_payment_amount
        FROM seller_orders so
-       JOIN orders o ON so.order_id = o.id
-       WHERE so.seller_id = ? AND o.payment_status = 'PAID'`,
+       WHERE so.seller_id = ?`,
       [seller.id]
     );
 
-    // Order status counts
+    // 2. Order status distribution
     const [orderStatusCounts] = await pool.query(
       `SELECT status, COUNT(id) as count
        FROM seller_orders
@@ -37,7 +42,16 @@ const getDashboardMetrics = async (req, res) => {
       [seller.id]
     );
 
-    // Product status counts
+    // 3. Payment status distribution
+    const [paymentStatusCounts] = await pool.query(
+      `SELECT payment_status, COUNT(id) as count
+       FROM seller_orders
+       WHERE seller_id = ?
+       GROUP BY payment_status`,
+      [seller.id]
+    );
+
+    // 4. Product counts
     const [productCounts] = await pool.query(
       `SELECT status, COUNT(id) as count
        FROM products
@@ -46,7 +60,22 @@ const getDashboardMetrics = async (req, res) => {
       [seller.id]
     );
 
-    // Recent orders for this seller
+    // 5. Orders & Revenue timeline (Past 7 days / weekly distribution)
+    const [timelineData] = await pool.query(
+      `SELECT 
+         DATE_FORMAT(o.created_at, '%Y-%m-%d') as date_label,
+         COUNT(so.id) as orders_count,
+         COALESCE(SUM(so.subtotal), 0) as revenue
+       FROM seller_orders so
+       JOIN orders o ON so.order_id = o.id
+       WHERE so.seller_id = ? AND o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+       GROUP BY DATE_FORMAT(o.created_at, '%Y-%m-%d')
+       ORDER BY date_label ASC
+       LIMIT 14`,
+      [seller.id]
+    );
+
+    // 6. Recent orders for this seller
     const [recentOrders] = await pool.query(
       `SELECT 
          so.id as seller_order_id,
@@ -54,9 +83,11 @@ const getDashboardMetrics = async (req, res) => {
          o.order_number,
          o.created_at,
          so.subtotal,
+         so.delivery_fee,
          so.status as seller_status,
-         o.payment_status,
+         so.payment_status,
          o.delivery_name,
+         o.fulfillment_method,
          COUNT(oi.id) as items_count
        FROM seller_orders so
        JOIN orders o ON so.order_id = o.id
@@ -64,19 +95,29 @@ const getDashboardMetrics = async (req, res) => {
        WHERE so.seller_id = ?
        GROUP BY so.id
        ORDER BY o.created_at DESC
-       LIMIT 5`,
+       LIMIT 6`,
       [seller.id]
     );
+
+    const stats = statsResult[0] || {};
 
     return res.json({
       success: true,
       data: {
         seller,
         metrics: {
-          totalRevenue: parseFloat(salesResult[0].total_revenue),
-          totalOrders: salesResult[0].total_orders,
+          currency: 'PKR',
+          totalOrders: Number(stats.total_orders || 0),
+          pendingOrders: Number(stats.pending_orders || 0),
+          completedOrders: Number(stats.completed_orders || 0),
+          totalRevenue: parseFloat(stats.total_revenue || 0),
+          paidAmount: parseFloat(stats.paid_amount || 0),
+          pendingPaymentAmount: parseFloat(stats.pending_payment_amount || 0),
+          refunds: 0.00,
           orderStatusCounts,
-          productCounts
+          paymentStatusCounts,
+          productCounts,
+          timelineData
         },
         recentOrders
       }
@@ -149,11 +190,11 @@ const createProduct = async (req, res) => {
 
     await connection.beginTransaction();
 
-    // Products created by sellers should initially be PENDING
+    // Products created by approved sellers are immediately ACTIVE
     const [result] = await connection.query(
       `INSERT INTO products 
         (seller_id, title, category, crop_type, description, price, unit, available_quantity, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
       [
         seller.id,
         title,
@@ -200,11 +241,11 @@ const createProduct = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Product created successfully. Awaiting Administrator approval.',
+      message: 'Product published successfully to the marketplace.',
       data: {
         id: productId,
         title,
-        status: 'PENDING'
+        status: 'ACTIVE'
       }
     });
   } catch (error) {
@@ -368,7 +409,13 @@ const getSellerOrders = async (req, res) => {
         o.delivery_phone,
         o.delivery_address,
         o.delivery_notes,
-        o.payment_status,
+        COALESCE(so.payment_method, o.payment_method) as payment_method,
+        COALESCE(so.online_provider, o.online_provider) as online_provider,
+        COALESCE(so.payment_status, o.payment_status) as payment_status,
+        COALESCE(so.amount_due, so.subtotal + COALESCE(so.delivery_fee, 0)) as amount_due,
+        COALESCE(so.amount_paid, 0.00) as amount_paid,
+        COALESCE(so.amount_remaining, so.subtotal + COALESCE(so.delivery_fee, 0) - COALESCE(so.amount_paid, 0.00)) as amount_remaining,
+        COALESCE(so.transaction_reference, o.transaction_reference) as transaction_reference,
         COUNT(oi.id) as items_count
       FROM seller_orders so
       JOIN orders o ON so.order_id = o.id
@@ -420,7 +467,15 @@ const getSellerOrderById = async (req, res) => {
          o.delivery_phone,
          o.delivery_address,
          o.delivery_notes,
-         o.payment_status,
+         COALESCE(so.payment_method, o.payment_method) as payment_method,
+         COALESCE(so.online_provider, o.online_provider) as online_provider,
+         COALESCE(so.payment_status, o.payment_status) as payment_status,
+         COALESCE(so.amount_due, so.subtotal + COALESCE(so.delivery_fee, 0)) as amount_due,
+         COALESCE(so.amount_paid, 0.00) as amount_paid,
+         COALESCE(so.amount_remaining, so.subtotal + COALESCE(so.delivery_fee, 0) - COALESCE(so.amount_paid, 0.00)) as amount_remaining,
+         COALESCE(so.transaction_reference, o.transaction_reference) as transaction_reference,
+         COALESCE(so.fulfillment_method, o.fulfillment_method, 'DELIVERY') as fulfillment_method,
+         COALESCE(so.delivery_fee, 0) as delivery_fee,
          u.name as buyer_name,
          u.email as buyer_email
        FROM seller_orders so
@@ -448,14 +503,15 @@ const getSellerOrderById = async (req, res) => {
        FROM order_items oi
        JOIN products p ON oi.product_id = p.id
        WHERE oi.seller_order_id = ?`,
-      [id]
+      [subOrder.seller_order_id]
     );
-
-    subOrder.items = items;
 
     return res.json({
       success: true,
-      data: subOrder
+      data: {
+        ...subOrder,
+        items
+      }
     });
   } catch (error) {
     console.error('Error fetching seller order detail:', error);
@@ -464,8 +520,7 @@ const getSellerOrderById = async (req, res) => {
 };
 
 /**
- * Update Seller Order Status
- * Allowed: PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED
+ * Update Seller Sub-Order Fulfillment Status
  */
 const updateSellerOrderStatus = async (req, res) => {
   try {
@@ -476,24 +531,41 @@ const updateSellerOrderStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Seller profile not found.' });
     }
 
-    const allowedStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
-    if (!allowedStatuses.includes(status)) {
+    const validStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+    if (!validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid status. Must be one of: [${allowedStatuses.join(', ')}]`
+        message: `Invalid status. Must be one of [${validStatuses.join(', ')}]`
       });
     }
 
-    const [result] = await pool.query(
-      'UPDATE seller_orders SET status = ?, updated_at = NOW() WHERE id = ? AND seller_id = ?',
-      [status, id, seller.id]
+    const [subOrders] = await pool.query(
+      'SELECT id, order_id, payment_method, subtotal FROM seller_orders WHERE id = ? AND seller_id = ?',
+      [id, seller.id]
     );
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
+    if (subOrders.length === 0) {
+      return res.status(404).json({ success: false, message: 'Sub-order not found.' });
+    }
+
+    if (req.body.payment_status && subOrders[0].payment_method === 'ONLINE') {
+      return res.status(403).json({
         success: false,
-        message: 'Order not found or not owned by this seller.'
+        message: 'Sellers cannot manually modify online payment status. Online transactions are verified strictly by payment provider gateways.'
       });
+    }
+
+    await pool.query(
+      'UPDATE seller_orders SET status = ?, updated_at = NOW() WHERE id = ?',
+      [status, id]
+    );
+
+    // If COD order is marked DELIVERED, mark COD payment as collected/paid
+    if (status === 'DELIVERED' && subOrders[0].payment_method === 'COD') {
+      await pool.query(
+        'UPDATE seller_orders SET payment_status = "PAID", amount_paid = subtotal, amount_remaining = 0.00 WHERE id = ?',
+        [id]
+      );
     }
 
     return res.json({
@@ -503,6 +575,95 @@ const updateSellerOrderStatus = async (req, res) => {
   } catch (error) {
     console.error('Error updating order status:', error);
     return res.status(500).json({ success: false, message: 'Failed to update order status.' });
+  }
+};
+
+/**
+ * Update Seller Sub-Order Manual Payment Status (COD Collection)
+ * Supported statuses: 'UNPAID', 'PARTIALLY_PAID', 'PAID'
+ */
+const updateSellerOrderPaymentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { payment_status, amount_paid } = req.body;
+    const seller = await getSellerFromUser(req.user.id);
+    if (!seller) {
+      return res.status(404).json({ success: false, message: 'Seller profile not found.' });
+    }
+
+    const validPaymentStatuses = ['UNPAID', 'PARTIALLY_PAID', 'PAID'];
+    if (!validPaymentStatuses.includes(payment_status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid payment status. Must be one of [${validPaymentStatuses.join(', ')}]`
+      });
+    }
+
+    const [subOrders] = await pool.query(
+      'SELECT id, order_id, subtotal, delivery_fee FROM seller_orders WHERE id = ? AND seller_id = ?',
+      [id, seller.id]
+    );
+
+    if (subOrders.length === 0) {
+      return res.status(404).json({ success: false, message: 'Sub-order not found or not authorized for this seller.' });
+    }
+
+    const subOrder = subOrders[0];
+    const orderTotal = parseFloat(subOrder.subtotal) + parseFloat(subOrder.delivery_fee || 0);
+
+    let resolvedPaid = 0.00;
+    if (payment_status === 'PAID') {
+      resolvedPaid = orderTotal;
+    } else if (payment_status === 'PARTIALLY_PAID') {
+      resolvedPaid = amount_paid ? parseFloat(amount_paid) : (orderTotal / 2);
+    } else {
+      resolvedPaid = 0.00;
+    }
+    const resolvedRemaining = Math.max(0, orderTotal - resolvedPaid);
+
+    await pool.query(
+      `UPDATE seller_orders 
+       SET payment_status = ?, amount_due = ?, amount_paid = ?, amount_remaining = ?, updated_at = NOW() 
+       WHERE id = ?`,
+      [payment_status, orderTotal, resolvedPaid, resolvedRemaining, id]
+    );
+
+    // Synchronize parent order payment status
+    const [siblingOrders] = await pool.query(
+      'SELECT payment_status, amount_paid, amount_due FROM seller_orders WHERE order_id = ?',
+      [subOrder.order_id]
+    );
+
+    const allPaid = siblingOrders.every(s => s.payment_status === 'PAID');
+    const anyPaidOrPartial = siblingOrders.some(s => s.payment_status === 'PAID' || s.payment_status === 'PARTIALLY_PAID');
+    const totalParentPaid = siblingOrders.reduce((sum, s) => sum + parseFloat(s.amount_paid || 0), 0);
+
+    let parentStatus = 'UNPAID';
+    if (allPaid) {
+      parentStatus = 'PAID';
+    } else if (anyPaidOrPartial) {
+      parentStatus = 'PARTIALLY_PAID';
+    }
+
+    await pool.query(
+      'UPDATE orders SET payment_status = ?, amount_paid = ?, updated_at = NOW() WHERE id = ?',
+      [parentStatus, totalParentPaid, subOrder.order_id]
+    );
+
+    return res.json({
+      success: true,
+      message: `Cash on Delivery payment status updated to ${payment_status}.`,
+      data: {
+        sellerOrderId: id,
+        paymentStatus: payment_status,
+        amountPaid: resolvedPaid,
+        amountRemaining: resolvedRemaining,
+        parentPaymentStatus: parentStatus
+      }
+    });
+  } catch (error) {
+    console.error('Error updating order payment status:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update payment status.' });
   }
 };
 
@@ -528,25 +689,181 @@ const updateSellerProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Seller profile not found.' });
     }
 
-    const { farm_name, phone, address, bio } = req.body;
+    const {
+      farm_name,
+      phone,
+      address,
+      province,
+      district,
+      tehsil,
+      village,
+      city,
+      region,
+      latitude,
+      longitude,
+      seller_declared_area_acres,
+      calculated_polygon_area_acres,
+      farm_polygon,
+      logo_url,
+      profile_image,
+      bio,
+      business_info,
+      delivery_available,
+      pickup_available,
+      estimated_delivery_min_days,
+      estimated_delivery_max_days,
+      delivery_fee,
+      pickup_instructions,
+      payout_method,
+      payout_account_title,
+      payout_account_number,
+      payout_bank_name
+    } = req.body;
+
+    const resolvedVillage = village !== undefined ? village : req.body.locality;
+    const resolvedDeclaredAcreage = seller_declared_area_acres !== undefined ? seller_declared_area_acres : req.body.declared_acreage;
+    const resolvedCalculatedAcreage = calculated_polygon_area_acres !== undefined ? calculated_polygon_area_acres : req.body.calculated_acreage;
+
+    let normalizedPayoutMethod = payout_method ? payout_method.toUpperCase() : null;
+    if (normalizedPayoutMethod === 'BANK_ACCOUNT' || normalizedPayoutMethod === 'BANK') {
+      normalizedPayoutMethod = 'BANK_TRANSFER';
+    }
+
+    let reverificationRequired = false;
+
+    // Check sensitive fields modification if seller is already APPROVED
+    if (seller.approval_status === 'APPROVED') {
+      if (farm_name && farm_name !== seller.farm_name) {
+        await pool.query(
+          `INSERT INTO seller_profile_audits (seller_id, changed_by, field_name, old_value, new_value, triggered_reverification)
+           VALUES (?, ?, 'farm_name', ?, ?, TRUE)`,
+          [seller.id, req.user.id, seller.farm_name, farm_name]
+        );
+        reverificationRequired = true;
+      }
+
+      if (payout_account_number && payout_account_number !== seller.payout_account_number) {
+        await pool.query(
+          `INSERT INTO seller_profile_audits (seller_id, changed_by, field_name, old_value, new_value, triggered_reverification)
+           VALUES (?, ?, 'payout_account_number', ?, ?, TRUE)`,
+          [seller.id, req.user.id, seller.payout_account_number ? 'REDACTED_PREVIOUS' : 'NONE', payout_account_number]
+        );
+        reverificationRequired = true;
+      }
+    }
+
+    const targetApprovalStatus = reverificationRequired ? 'REVIEW_REQUIRED' : seller.approval_status;
 
     await pool.query(
       `UPDATE sellers 
        SET farm_name = COALESCE(?, farm_name),
            phone = COALESCE(?, phone),
            address = COALESCE(?, address),
+           province = COALESCE(?, province),
+           district = COALESCE(?, district),
+           tehsil = COALESCE(?, tehsil),
+           village = COALESCE(?, village),
+           city = COALESCE(?, city),
+           region = COALESCE(?, region),
+           latitude = COALESCE(?, latitude),
+           longitude = COALESCE(?, longitude),
+           seller_declared_area_acres = COALESCE(?, seller_declared_area_acres),
+           calculated_polygon_area_acres = COALESCE(?, calculated_polygon_area_acres),
+           farm_polygon = COALESCE(?, farm_polygon),
+           logo_url = COALESCE(?, logo_url),
+           profile_image = COALESCE(?, profile_image),
            bio = COALESCE(?, bio),
+           business_info = COALESCE(?, business_info),
+           delivery_available = COALESCE(?, delivery_available),
+           pickup_available = COALESCE(?, pickup_available),
+           estimated_delivery_min_days = COALESCE(?, estimated_delivery_min_days),
+           estimated_delivery_max_days = COALESCE(?, estimated_delivery_max_days),
+           delivery_fee = COALESCE(?, delivery_fee),
+           pickup_instructions = COALESCE(?, pickup_instructions),
+           payout_method = COALESCE(?, payout_method),
+           payout_account_title = COALESCE(?, payout_account_title),
+           payout_account_number = COALESCE(?, payout_account_number),
+           payout_bank_name = COALESCE(?, payout_bank_name),
+           approval_status = ?,
            updated_at = NOW()
        WHERE id = ?`,
-      [farm_name, phone, address, bio, seller.id]
+      [
+        farm_name || null,
+        phone || null,
+        address || null,
+        province || null,
+        district || null,
+        tehsil || null,
+        resolvedVillage || null,
+        city || null,
+        region || null,
+        latitude !== undefined && latitude !== '' ? parseFloat(latitude) : null,
+        longitude !== undefined && longitude !== '' ? parseFloat(longitude) : null,
+        resolvedDeclaredAcreage !== undefined && resolvedDeclaredAcreage !== '' ? parseFloat(resolvedDeclaredAcreage) : null,
+        resolvedCalculatedAcreage !== undefined && resolvedCalculatedAcreage !== '' ? parseFloat(resolvedCalculatedAcreage) : null,
+        farm_polygon ? (typeof farm_polygon === 'string' ? farm_polygon : JSON.stringify(farm_polygon)) : null,
+        logo_url || null,
+        profile_image || null,
+        bio || null,
+        business_info || null,
+        delivery_available !== undefined ? Boolean(delivery_available) : null,
+        pickup_available !== undefined ? Boolean(pickup_available) : null,
+        estimated_delivery_min_days !== undefined && estimated_delivery_min_days !== '' ? parseInt(estimated_delivery_min_days) : null,
+        estimated_delivery_max_days !== undefined && estimated_delivery_max_days !== '' ? parseInt(estimated_delivery_max_days) : null,
+        delivery_fee !== undefined && delivery_fee !== '' ? parseFloat(delivery_fee) : null,
+        pickup_instructions || null,
+        normalizedPayoutMethod || null,
+        payout_account_title || null,
+        payout_account_number || null,
+        payout_bank_name || null,
+        targetApprovalStatus,
+        seller.id
+      ]
     );
+
+    const [updated] = await pool.query('SELECT * FROM sellers WHERE id = ?', [seller.id]);
+
+    let responseMessage = 'Farm profile, boundary coordinates, and fulfillment settings updated successfully.';
+    if (reverificationRequired) {
+      responseMessage = 'Profile saved. Notice: Modifying verified farm legal title or bank payout details requires administrative re-verification.';
+    }
 
     return res.json({
       success: true,
-      message: 'Seller farm profile updated successfully.'
+      message: responseMessage,
+      reverificationRequired,
+      data: updated[0]
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Failed to update profile.' });
+    console.error('Error updating seller profile:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update farm profile.' });
+  }
+};
+
+/**
+ * Direct Media Upload for Seller Logos, Profile Images & Docs
+ */
+const uploadMediaFile = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No media file provided for upload.' });
+    }
+
+    const uploaded = await uploadMedia(req.file.path, {
+      folder: 'kisanova_farm_media',
+      resource_type: req.file.mimetype.startsWith('video') ? 'video' : 'image'
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        url: uploaded.url,
+        format: uploaded.format
+      }
+    });
+  } catch (error) {
+    console.error('Upload media error:', error);
+    return res.status(500).json({ success: false, message: 'Media upload failed: ' + error.message });
   }
 };
 
@@ -559,6 +876,8 @@ module.exports = {
   getSellerOrders,
   getSellerOrderById,
   updateSellerOrderStatus,
+  updateSellerOrderPaymentStatus,
   getSellerProfile,
-  updateSellerProfile
+  updateSellerProfile,
+  uploadMediaFile
 };

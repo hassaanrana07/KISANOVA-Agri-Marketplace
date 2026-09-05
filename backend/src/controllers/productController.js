@@ -16,7 +16,7 @@ const getProducts = async (req, res) => {
       limit = 12
     } = req.query;
 
-    let whereClauses = ["p.status = 'APPROVED'", "s.approval_status = 'APPROVED'"];
+    let whereClauses = ["p.status = 'ACTIVE'", "s.approval_status = 'APPROVED'"];
     let queryParams = [];
 
     if (search) {
@@ -74,7 +74,8 @@ const getProducts = async (req, res) => {
       `SELECT 
          p.id, p.seller_id, p.title, p.category, p.crop_type, p.description,
          p.price, p.unit, p.available_quantity, p.status, p.created_at,
-         s.farm_name, s.phone as seller_phone, s.address as seller_address,
+         s.farm_name, s.address as seller_address, s.city as seller_city,
+         s.region as seller_region, s.latitude as seller_latitude, s.longitude as seller_longitude,
          COALESCE(
            (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY is_primary DESC, id ASC LIMIT 1),
            'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=600&q=80'
@@ -117,7 +118,7 @@ const getCategories = async (req, res) => {
       `SELECT p.category, COUNT(p.id) as product_count
        FROM products p
        JOIN sellers s ON p.seller_id = s.id
-       WHERE p.status = 'APPROVED' AND s.approval_status = 'APPROVED'
+       WHERE p.status = 'ACTIVE' AND s.approval_status = 'APPROVED'
        GROUP BY p.category
        ORDER BY product_count DESC`
     );
@@ -146,9 +147,16 @@ const getProductById = async (req, res) => {
       `SELECT 
          p.id, p.seller_id, p.title, p.category, p.crop_type, p.description,
          p.price, p.unit, p.available_quantity, p.status, p.created_at,
-         s.user_id as seller_user_id, s.farm_name, s.phone as seller_phone, 
-         s.address as seller_address, s.bio as seller_bio, s.approval_status as seller_approval,
-         u.name as seller_name, u.email as seller_email
+         s.user_id as seller_user_id, s.farm_name, s.address as seller_address,
+         s.city as seller_city, s.region as seller_region, s.latitude as seller_latitude,
+         s.longitude as seller_longitude, s.business_info as seller_business_info,
+         s.bio as seller_bio, s.profile_image as seller_profile_image, s.approval_status as seller_approval,
+         s.province as seller_province, s.district as seller_district, s.tehsil as seller_tehsil,
+         s.village as seller_locality, s.farm_polygon,
+         s.seller_declared_area_acres as declared_acreage, s.calculated_polygon_area_acres as calculated_acreage,
+         s.delivery_available, s.pickup_available, s.delivery_fee as seller_delivery_fee,
+         s.estimated_delivery_min_days, s.estimated_delivery_max_days, s.pickup_instructions,
+         u.name as seller_name
        FROM products p
        JOIN sellers s ON p.seller_id = s.id
        JOIN users u ON s.user_id = u.id
@@ -183,7 +191,7 @@ const getProductById = async (req, res) => {
          (SELECT image_url FROM product_images WHERE product_id = p.id LIMIT 1) as primary_image
        FROM products p
        JOIN sellers s ON p.seller_id = s.id
-       WHERE p.category = ? AND p.id != ? AND p.status = 'APPROVED'
+       WHERE p.category = ? AND p.id != ? AND p.status = 'ACTIVE' AND s.approval_status = 'APPROVED'
        LIMIT 4`,
       [product.category, id]
     );

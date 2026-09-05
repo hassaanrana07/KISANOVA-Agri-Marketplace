@@ -41,6 +41,7 @@ CREATE TABLE users (
 ) ENGINE=InnoDB;
 
 -- -------------------------------------------------------
+-- -------------------------------------------------------
 -- 2. SELLERS (Farm / Merchant Profile)
 -- -------------------------------------------------------
 CREATE TABLE sellers (
@@ -49,8 +50,34 @@ CREATE TABLE sellers (
     farm_name VARCHAR(150) NOT NULL,
     phone VARCHAR(30) NOT NULL,
     address TEXT NOT NULL,
+    city VARCHAR(100) NULL,
+    region VARCHAR(100) NULL,
+    province VARCHAR(100) NULL,
+    district VARCHAR(100) NULL,
+    tehsil VARCHAR(100) NULL,
+    village VARCHAR(150) NULL,
+    latitude DECIMAL(10, 8) NULL,
+    longitude DECIMAL(11, 8) NULL,
+    seller_declared_area_acres DECIMAL(10, 2) NULL,
+    calculated_polygon_area_acres DECIMAL(10, 2) NULL,
+    farm_polygon JSON NULL,
+    logo_url VARCHAR(500) NULL,
+    business_info TEXT NULL,
+    profile_image VARCHAR(500) NULL,
     bio TEXT NULL,
-    approval_status ENUM('PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED') NOT NULL DEFAULT 'PENDING',
+    delivery_available BOOLEAN DEFAULT TRUE,
+    pickup_available BOOLEAN DEFAULT TRUE,
+    estimated_delivery_min_days INT DEFAULT 2,
+    estimated_delivery_max_days INT DEFAULT 4,
+    delivery_fee DECIMAL(10, 2) DEFAULT 300.00,
+    pickup_instructions TEXT NULL,
+    payout_method ENUM('BANK_TRANSFER', 'EASYPAISA', 'JAZZCASH', 'SADAPAY') DEFAULT 'BANK_TRANSFER',
+    payout_account_title VARCHAR(150) NULL,
+    payout_account_number VARCHAR(100) NULL,
+    payout_bank_name VARCHAR(100) NULL,
+    payout_status ENUM('UNCONFIGURED', 'PENDING_VERIFICATION', 'VERIFIED') DEFAULT 'UNCONFIGURED',
+    approval_status ENUM('PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'REVIEW_REQUIRED') NOT NULL DEFAULT 'PENDING',
+    rejection_reason TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -70,7 +97,7 @@ CREATE TABLE products (
     price DECIMAL(10, 2) NOT NULL,
     unit VARCHAR(30) NOT NULL DEFAULT 'kg', -- kg, bag, crate, bushel, liter, ton
     available_quantity DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    status ENUM('PENDING', 'APPROVED', 'REJECTED', 'INACTIVE') NOT NULL DEFAULT 'PENDING',
+    status ENUM('ACTIVE', 'INACTIVE') NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (seller_id) REFERENCES sellers(id) ON DELETE CASCADE,
@@ -129,11 +156,23 @@ CREATE TABLE orders (
     order_number VARCHAR(50) NOT NULL UNIQUE,
     buyer_id INT NOT NULL,
     total_amount DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(10) NOT NULL DEFAULT 'PKR',
+    fulfillment_method ENUM('DELIVERY', 'PICKUP') NOT NULL DEFAULT 'DELIVERY',
+    delivery_fee DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    estimated_delivery_min_days INT NULL,
+    estimated_delivery_max_days INT NULL,
+    pickup_instructions TEXT NULL,
+    amount_due DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    amount_paid DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    amount_remaining DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     delivery_name VARCHAR(120) NOT NULL,
     delivery_phone VARCHAR(30) NOT NULL,
     delivery_address TEXT NOT NULL,
     delivery_notes TEXT NULL,
-    payment_status ENUM('PENDING', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
+    payment_method ENUM('COD', 'ONLINE') NOT NULL DEFAULT 'COD',
+    online_provider VARCHAR(50) NULL, -- 'easypaisa', 'jazzcash', 'sadapay', 'sandbox'
+    payment_status ENUM('UNPAID', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
+    transaction_reference VARCHAR(150) NULL,
     order_status ENUM('PENDING', 'PROCESSING', 'COMPLETED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -151,6 +190,15 @@ CREATE TABLE seller_orders (
     order_id INT NOT NULL,
     seller_id INT NOT NULL,
     subtotal DECIMAL(10, 2) NOT NULL,
+    fulfillment_method ENUM('DELIVERY', 'PICKUP') NOT NULL DEFAULT 'DELIVERY',
+    delivery_fee DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    amount_due DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    amount_paid DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    amount_remaining DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    payment_method ENUM('COD', 'ONLINE') NOT NULL DEFAULT 'COD',
+    online_provider VARCHAR(50) NULL,
+    payment_status ENUM('UNPAID', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
+    transaction_reference VARCHAR(150) NULL,
     status ENUM('PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -215,13 +263,19 @@ CREATE TABLE messages (
 CREATE TABLE payments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
-    payment_provider VARCHAR(50) NOT NULL DEFAULT 'sandbox', -- 'sandbox', 'stripe', 'bank_transfer'
+    seller_id INT NULL,
+    payment_provider VARCHAR(50) NOT NULL DEFAULT 'sandbox', -- 'sandbox', 'easypaisa', 'jazzcash', 'sadapay', 'bank_transfer'
     transaction_reference VARCHAR(150) NOT NULL UNIQUE,
     amount DECIMAL(10, 2) NOT NULL,
-    currency VARCHAR(10) NOT NULL DEFAULT 'USD',
-    status ENUM('PENDING', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
-    payment_method VARCHAR(50) NOT NULL DEFAULT 'card', -- 'card', 'bank_transfer', 'wallet'
+    currency VARCHAR(10) NOT NULL DEFAULT 'PKR',
+    amount_paid DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    amount_remaining DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    status ENUM('PENDING', 'PARTIALLY_PAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'ONLINE', -- 'COD', 'ONLINE', 'bank_transfer'
     proof_url VARCHAR(500) NULL, -- for manual bank transfer proof upload
+    webhook_payload JSON NULL,
+    refund_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    refund_reason TEXT NULL,
     admin_notes TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -229,3 +283,76 @@ CREATE TABLE payments (
     INDEX idx_payment_order (order_id),
     INDEX idx_payment_status (status)
 ) ENGINE=InnoDB;
+
+-- -------------------------------------------------------
+-- 13. SELLER PAYOUTS (Settlement Handling)
+-- -------------------------------------------------------
+CREATE TABLE seller_payouts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    seller_id INT NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(10) NOT NULL DEFAULT 'PKR',
+    payout_method VARCHAR(50) NOT NULL,
+    payout_destination VARCHAR(150) NOT NULL,
+    payout_model ENUM('MERCHANT_SETTLEMENT', 'MARKETPLACE_SPLIT') NOT NULL DEFAULT 'MERCHANT_SETTLEMENT',
+    status ENUM('PENDING', 'PROCESSING', 'SETTLED', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    reference_id VARCHAR(100) NULL,
+    notes TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (seller_id) REFERENCES sellers(id) ON DELETE RESTRICT,
+    INDEX idx_seller_payouts_seller (seller_id),
+    INDEX idx_seller_payouts_status (status)
+) ENGINE=InnoDB;
+
+-- -------------------------------------------------------
+-- 14. SELLER PROFILE AUDITS (Auditability for Sensitive Edits)
+-- -------------------------------------------------------
+CREATE TABLE seller_profile_audits (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    seller_id INT NOT NULL,
+    changed_by INT NOT NULL,
+    field_name VARCHAR(100) NOT NULL,
+    old_value TEXT NULL,
+    new_value TEXT NULL,
+    triggered_reverification BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (seller_id) REFERENCES sellers(id) ON DELETE CASCADE,
+    FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_profile_audits_seller (seller_id)
+) ENGINE=InnoDB;
+
+-- -------------------------------------------------------
+-- 15. NOTIFICATIONS (Real-Time In-App Alerts)
+-- -------------------------------------------------------
+CREATE TABLE notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    seller_id INT NULL,
+    type VARCHAR(50) NOT NULL DEFAULT 'NEW_ORDER',
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    link VARCHAR(255) NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_notifications_user (user_id),
+    INDEX idx_notifications_unread (user_id, is_read)
+) ENGINE=InnoDB;
+
+-- -------------------------------------------------------
+-- 16. PASSWORD RESETS (Secure OTP Management)
+-- -------------------------------------------------------
+CREATE TABLE password_resets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NULL,
+    phone VARCHAR(50) NULL,
+    otp_hash VARCHAR(255) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    attempts INT DEFAULT 0,
+    used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_pwd_resets_email (email),
+    INDEX idx_pwd_resets_phone (phone)
+) ENGINE=InnoDB;
+

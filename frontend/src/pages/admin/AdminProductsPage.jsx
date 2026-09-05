@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, CheckCircle, XCircle, EyeOff, AlertTriangle, Search, Filter } from 'lucide-react';
 import api from '../../services/api';
+import { formatPKR } from '../../utils/currency';
 
 const AdminProductsPage = () => {
   const [products, setProducts] = useState([]);
@@ -46,178 +47,196 @@ const AdminProductsPage = () => {
 
   const getStatusBadge = (status) => {
     switch (status) {
+      case 'ACTIVE':
       case 'APPROVED':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 flex items-center gap-1 w-fit">
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 w-fit">
             <CheckCircle className="w-3 h-3" />
-            APPROVED
-          </span>
-        );
-      case 'PENDING':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 flex items-center gap-1 w-fit">
-            <AlertTriangle className="w-3 h-3" />
-            PENDING AUDIT
+            ACTIVE
           </span>
         );
       case 'INACTIVE':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-700 text-slate-300 flex items-center gap-1 w-fit">
-            <EyeOff className="w-3 h-3" />
-            INACTIVE
-          </span>
-        );
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-500/20 text-red-300 flex items-center gap-1 w-fit">
-            <XCircle className="w-3 h-3" />
-            REJECTED
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-300 flex items-center gap-1 w-fit">
+            <EyeOff className="w-3 h-3" />
+            INACTIVE
           </span>
         );
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full overflow-x-hidden">
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">Crop & Harvest Moderation</h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Review submitted agricultural lots for quality guidelines before releasing to public marketplace.
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Product Approvals & Inventory</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Moderate produce listings, verify crop categories, and inspect farm origin.
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              fetchProducts();
+            }}
+            className="flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm"
+          >
+            <Search className="w-3.5 h-3.5 text-slate-400 mr-2" />
+            <input
+              type="text"
+              placeholder="Search produce..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="text-xs text-slate-800 focus:outline-none w-32 sm:w-44 placeholder:text-slate-400"
+            />
+          </form>
+
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
+            <Filter className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-xs text-slate-500 font-medium">Status:</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+            >
+              <option value="">All Produce</option>
+              <option value="ACTIVE">Active Only</option>
+              <option value="INACTIVE">Inactive Only</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {notice && (
-        <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold">
-          {notice}
+        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+          <CheckCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{notice}</span>
         </div>
       )}
 
-      {/* Filter and Search Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            fetchProducts();
-          }}
-          className="relative w-full sm:w-80"
-        >
-          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search crop or farm..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
-        </form>
-
-        <div className="flex items-center gap-2 self-end sm:self-auto">
-          <span className="text-xs text-slate-400 font-medium">Moderation Queue:</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 font-medium text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            <option value="">All Crop Statuses</option>
-            <option value="PENDING">Pending Audit</option>
-            <option value="APPROVED">Approved & Public</option>
-            <option value="INACTIVE">Inactive</option>
-            <option value="REJECTED">Rejected</option>
-          </select>
+      {/* Content */}
+      {loading ? (
+        <div className="py-20 flex items-center justify-center bg-white rounded-3xl border border-slate-200 shadow-sm">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
         </div>
-      </div>
+      ) : products.length === 0 ? (
+        <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-3xl border border-slate-200 shadow-sm">
+          No agricultural products found matching filter.
+        </div>
+      ) : (
+        <>
+          {/* Mobile Cards View */}
+          <div className="block md:hidden space-y-4">
+            {products.map((p) => (
+              <div key={p.id} className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={p.primary_image || 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=100&q=80'}
+                    alt={p.title}
+                    className="w-14 h-14 rounded-xl object-cover bg-slate-100 flex-shrink-0 border border-slate-200"
+                  />
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-xs text-slate-900 truncate">{p.title}</h3>
+                    <p className="text-[11px] text-slate-500">{p.farm_name}</p>
+                    <p className="text-[11px] font-bold text-slate-900 mt-0.5">
+                      {formatPKR(p.price)} / {p.unit}
+                    </p>
+                  </div>
+                </div>
 
-      {/* Products Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-xl overflow-hidden">
-        {loading ? (
-          <div className="py-20 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-400"></div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                  <div>{getStatusBadge(p.status)}</div>
+                  <div>
+                    {p.status === 'ACTIVE' ? (
+                      <button
+                        onClick={() => handleUpdateProductStatus(p.id, 'INACTIVE')}
+                        className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
+                      >
+                        Deactivate
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleUpdateProductStatus(p.id, 'ACTIVE')}
+                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs"
+                      >
+                        Activate
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        ) : products.length === 0 ? (
-          <div className="p-12 text-center text-xs text-slate-400">
-            No crops found matching this moderation filter.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-950/60 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                <tr>
-                  <th className="py-3.5 px-6">Crop / Item</th>
-                  <th className="py-3.5 px-6">Producer Farm</th>
-                  <th className="py-3.5 px-6">Category</th>
-                  <th className="py-3.5 px-6">Price</th>
-                  <th className="py-3.5 px-6">Available Units</th>
-                  <th className="py-3.5 px-6">Status</th>
-                  <th className="py-3.5 px-6 text-right">Moderation Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {products.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-800/50 transition-colors">
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-3">
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="w-full max-w-full overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                  <tr>
+                    <th className="py-3.5 px-6">Product Details</th>
+                    <th className="py-3.5 px-6">Seller & Origin Farm</th>
+                    <th className="py-3.5 px-6">Price / Unit</th>
+                    <th className="py-3.5 px-6">Available Stock</th>
+                    <th className="py-3.5 px-6">Moderation Status</th>
+                    <th className="py-3.5 px-6 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {products.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-4 px-6 flex items-center gap-3">
                         <img
                           src={p.primary_image || 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=100&q=80'}
                           alt={p.title}
-                          className="w-12 h-12 rounded-xl object-cover border border-slate-800 bg-slate-950 flex-shrink-0"
+                          className="w-10 h-10 rounded-xl object-cover bg-slate-100 flex-shrink-0 border border-slate-200"
                         />
                         <div>
-                          <p className="font-bold text-white text-xs line-clamp-1">{p.title}</p>
-                          <p className="text-[11px] text-slate-400 line-clamp-1">{p.description}</p>
+                          <p className="font-bold text-slate-900">{p.title}</p>
+                          <span className="text-[10px] text-slate-500">{p.category}</span>
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <p className="font-bold text-white">{p.farm_name}</p>
-                      <p className="text-[11px] text-slate-400">{p.seller_name}</p>
-                    </td>
-                    <td className="py-4 px-6 text-slate-400">{p.category}</td>
-                    <td className="py-4 px-6 font-bold text-white">
-                      ${parseFloat(p.price).toFixed(2)} <span className="text-[10px] text-slate-500 font-normal">/ {p.unit}</span>
-                    </td>
-                    <td className="py-4 px-6 font-semibold text-slate-300">
-                      {p.available_quantity} {p.unit}
-                    </td>
-                    <td className="py-4 px-6">
-                      {getStatusBadge(p.status)}
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {p.status !== 'APPROVED' && (
-                          <button
-                            onClick={() => handleUpdateProductStatus(p.id, 'APPROVED')}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors"
-                          >
-                            Approve
-                          </button>
-                        )}
-                        {p.status === 'PENDING' && (
-                          <button
-                            onClick={() => handleUpdateProductStatus(p.id, 'REJECTED')}
-                            className="px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white rounded-lg text-xs font-bold transition-colors"
-                          >
-                            Reject
-                          </button>
-                        )}
-                        {p.status === 'APPROVED' && (
+                      </td>
+                      <td className="py-4 px-6 text-slate-700 font-medium">
+                        {p.farm_name}
+                      </td>
+                      <td className="py-4 px-6 font-bold text-slate-900">
+                        {formatPKR(p.price)} / {p.unit}
+                      </td>
+                      <td className="py-4 px-6 font-bold text-slate-700">
+                        {p.available_quantity} {p.unit}s
+                      </td>
+                      <td className="py-4 px-6">
+                        {getStatusBadge(p.status)}
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        {p.status === 'ACTIVE' ? (
                           <button
                             onClick={() => handleUpdateProductStatus(p.id, 'INACTIVE')}
-                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-bold transition-colors"
+                            className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
                           >
                             Deactivate
                           </button>
+                        ) : (
+                          <button
+                            onClick={() => handleUpdateProductStatus(p.id, 'ACTIVE')}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors shadow-xs"
+                          >
+                            Activate
+                          </button>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 };

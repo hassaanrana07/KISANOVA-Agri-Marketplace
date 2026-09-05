@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { uploadMedia } = require('../services/storageService');
+const socketService = require('../services/socketService');
 
 /**
  * Get or Create Conversation
@@ -269,6 +270,20 @@ const sendMessage = async (req, res) => {
        WHERE m.id = ?`,
       [result.insertId]
     );
+
+    // Real-time broadcast to conversation thread room
+    socketService.emitToConversation(conversationId, 'new_message', newMessage[0]);
+
+    // Also notify other participant directly if outside chat thread
+    const recipientUserId = (userId === conv.buyer_id) ? conv.seller_user_id : conv.buyer_id;
+    if (recipientUserId) {
+      socketService.emitToUser(recipientUserId, 'new_chat_notification', {
+        conversationId,
+        senderName: newMessage[0].sender_name,
+        textContent: text_content || (finalMessageType === 'IMAGE' ? 'Sent an image attachment' : 'Sent a file'),
+        created_at: newMessage[0].created_at
+      });
+    }
 
     return res.status(201).json({
       success: true,

@@ -83,46 +83,61 @@ async function seed() {
 
     console.log('✅ Inserted users (1 Admin, 3 Sellers, 2 Buyers)');
 
-    // 3. Insert Sellers Profiles
+    // 3. Insert Sellers Profiles with Geolocation & Business Information
     const [seller1] = await conn.query(
-      `INSERT INTO sellers (user_id, farm_name, phone, address, bio, approval_status) 
-       VALUES (?, ?, ?, ?, ?, 'APPROVED')`,
+      `INSERT INTO sellers (user_id, farm_name, phone, address, city, region, latitude, longitude, business_info, bio, approval_status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'APPROVED')`,
       [
         sellerUser1.insertId,
         'Green Valley Farms',
-        '+1 555-234-5678',
-        'Sector 4, Indus Valley Agro Corridor, Punjab Region',
-        'Specializing in organic non-GMO heirloom wheat, aromatic long-grain basmati, and raw comb honey. Farming responsibly with solar-powered irrigation.',
+        '+92 300 2345678',
+        'Sector 4, Indus Valley Agro Corridor, Jhang Road',
+        'Faisalabad',
+        'Punjab',
+        31.4504,
+        73.1350,
+        'Certified organic heirloom grain producer with solar-powered drip irrigation and moisture-controlled grain silos.',
+        'Specializing in organic non-GMO heirloom wheat, aromatic long-grain basmati, and raw comb honey. Farming responsibly with solar-powered irrigation.'
       ]
     );
 
     const [seller2] = await conn.query(
-      `INSERT INTO sellers (user_id, farm_name, phone, address, bio, approval_status) 
-       VALUES (?, ?, ?, ?, ?, 'APPROVED')`,
+      `INSERT INTO sellers (user_id, farm_name, phone, address, city, region, latitude, longitude, business_info, bio, approval_status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'APPROVED')`,
       [
         sellerUser2.insertId,
         'Golden Harvest Organics',
-        '+1 555-876-5432',
-        'Plot 18, Royal Orchard Foothills, Maharashtra Coastal Belt',
-        'Generations of fruit cultivators harvesting sun-kissed Alphonso mangoes, fresh vine tomatoes, and crisp red storage onions. Global GAP certified.',
+        '+92 321 8765432',
+        'Plot 18, Royal Orchard Belt, Old Shujabad Road',
+        'Multan',
+        'Punjab',
+        30.1575,
+        71.5249,
+        'Third-generation fruit and vegetable cultivators with modern cold storage and Global GAP agricultural hygiene certification.',
+        'Generations of fruit cultivators harvesting sun-kissed Alphonso mangoes, fresh vine tomatoes, and crisp red storage onions. Global GAP certified.'
       ]
     );
 
     const [seller3] = await conn.query(
-      `INSERT INTO sellers (user_id, farm_name, phone, address, bio, approval_status) 
-       VALUES (?, ?, ?, ?, ?, 'PENDING')`,
+      `INSERT INTO sellers (user_id, farm_name, phone, address, city, region, latitude, longitude, business_info, bio, approval_status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
       [
         sellerUser3.insertId,
         'Sunrise Agro Commodities',
-        '+1 555-345-6789',
-        'Highway 12, Riverbend Farm District, Sindh Valley',
-        'New agricultural cooperative applying for marketplace approval to distribute bulk organic cotton bales and cold-pressed sunflower oil.',
+        '+92 333 3456789',
+        'Highway 12, Riverbend Farm District, Rohri Bypass',
+        'Sukkur',
+        'Sindh',
+        27.7052,
+        68.8574,
+        'Commercial agricultural cooperative supplying certified long-staple cotton and cold-pressed oilseeds across nationwide industrial mills.',
+        'New agricultural cooperative applying for marketplace approval to distribute bulk organic cotton bales and cold-pressed sunflower oil.'
       ]
     );
 
     console.log('✅ Inserted seller profiles (2 Approved, 1 Pending for Admin review)');
 
-    // 4. Products Data
+    // 4. Products Data (Immediate ACTIVE status for approved sellers)
     const productsData = [
       {
         seller_id: seller1.insertId,
@@ -133,7 +148,7 @@ async function seed() {
         price: 42.00,
         unit: 'bag (50kg)',
         available_quantity: 450,
-        status: 'APPROVED',
+        status: 'ACTIVE',
         images: [
           'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80',
           'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80'
@@ -148,7 +163,7 @@ async function seed() {
         price: 65.00,
         unit: 'bag (25kg)',
         available_quantity: 280,
-        status: 'APPROVED',
+        status: 'ACTIVE',
         images: [
           'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80'
         ]
@@ -162,7 +177,7 @@ async function seed() {
         price: 18.50,
         unit: 'jar (1kg)',
         available_quantity: 120,
-        status: 'APPROVED',
+        status: 'ACTIVE',
         images: [
           'https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=800&q=80'
         ]
@@ -176,7 +191,7 @@ async function seed() {
         price: 135.00,
         unit: 'bale (170kg)',
         available_quantity: 35,
-        status: 'PENDING', // PENDING for Admin moderation queue demo!
+        status: 'ACTIVE',
         images: [
           'https://images.unsplash.com/photo-1605000797499-95a51c5269ae?auto=format&fit=crop&w=800&q=80'
         ]
@@ -190,7 +205,7 @@ async function seed() {
         price: 38.00,
         unit: 'crate (5kg)',
         available_quantity: 150,
-        status: 'APPROVED',
+        status: 'ACTIVE',
         images: [
           'https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&w=800&q=80'
         ]
@@ -204,7 +219,7 @@ async function seed() {
         price: 26.00,
         unit: 'sack (25kg)',
         available_quantity: 320,
-        status: 'APPROVED',
+        status: 'ACTIVE',
         images: [
           'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=800&q=80'
         ]
@@ -218,7 +233,7 @@ async function seed() {
         price: 22.00,
         unit: 'crate (12kg)',
         available_quantity: 210,
-        status: 'APPROVED',
+        status: 'ACTIVE',
         images: [
           'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=800&q=80'
         ]
@@ -232,7 +247,7 @@ async function seed() {
         price: 6.50,
         unit: 'bottle (2L)',
         available_quantity: 80,
-        status: 'APPROVED',
+        status: 'ACTIVE',
         images: [
           'https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80'
         ]
@@ -264,22 +279,20 @@ async function seed() {
     await conn.query(`INSERT INTO carts (buyer_id) VALUES (?)`, [buyerUser2.insertId]);
 
     // 6. Create Seed Multi-Seller Order (Demonstration of Multi-Seller Checkout)
-    // Buyer 1 buys:
-    // Product 1 (Durum Wheat from Seller 1): 2 bags * $42 = $84
-    // Product 5 (Alphonso Mangoes from Seller 2): 3 crates * $38 = $114
-    // Total = $198.00
+    // Order 1: Online Payment via JazzCash (PAID)
     const orderNum1 = 'KSN-' + Math.floor(100000 + Math.random() * 900000);
+    const txnRef1 = 'TXN-JC-' + Math.floor(100000 + Math.random() * 900000);
     const [parentOrder1] = await conn.query(
-      `INSERT INTO orders (order_number, buyer_id, total_amount, delivery_name, delivery_phone, delivery_address, payment_status, order_status)
-       VALUES (?, ?, 198.00, 'Zainab Ali', '+1 555-901-2345', '742 Evergreen Terrace, North Agricultural District', 'PAID', 'PROCESSING')`,
-      [orderNum1, buyerUser1.insertId]
+      `INSERT INTO orders (order_number, buyer_id, total_amount, delivery_name, delivery_phone, delivery_address, payment_method, online_provider, payment_status, transaction_reference, order_status)
+       VALUES (?, ?, 198.00, 'Zainab Ali', '+92 301 9012345', '742 Canal View Gardens, Sector B, Lahore', 'ONLINE', 'jazzcash', 'PAID', ?, 'PROCESSING')`,
+      [orderNum1, buyerUser1.insertId, txnRef1]
     );
 
     // Sub-order 1 for Seller 1 (Green Valley Farms)
     const [subOrder1] = await conn.query(
-      `INSERT INTO seller_orders (order_id, seller_id, subtotal, status)
-       VALUES (?, ?, 84.00, 'PROCESSING')`,
-      [parentOrder1.insertId, seller1.insertId]
+      `INSERT INTO seller_orders (order_id, seller_id, subtotal, payment_method, online_provider, payment_status, transaction_reference, status)
+       VALUES (?, ?, 84.00, 'ONLINE', 'jazzcash', 'PAID', ?, 'PROCESSING')`,
+      [parentOrder1.insertId, seller1.insertId, txnRef1]
     );
 
     await conn.query(
@@ -290,9 +303,9 @@ async function seed() {
 
     // Sub-order 2 for Seller 2 (Golden Harvest Organics)
     const [subOrder2] = await conn.query(
-      `INSERT INTO seller_orders (order_id, seller_id, subtotal, status)
-       VALUES (?, ?, 114.00, 'CONFIRMED')`,
-      [parentOrder1.insertId, seller2.insertId]
+      `INSERT INTO seller_orders (order_id, seller_id, subtotal, payment_method, online_provider, payment_status, transaction_reference, status)
+       VALUES (?, ?, 114.00, 'ONLINE', 'jazzcash', 'PAID', ?, 'CONFIRMED')`,
+      [parentOrder1.insertId, seller2.insertId, txnRef1]
     );
 
     await conn.query(
@@ -301,24 +314,24 @@ async function seed() {
       [subOrder2.insertId, insertedProductIds[4]]
     );
 
-    // Payment record for Order 1 (Online Sandbox payment)
+    // Payment record for Order 1
     await conn.query(
       `INSERT INTO payments (order_id, payment_provider, transaction_reference, amount, currency, status, payment_method)
-       VALUES (?, 'kisanova_sandbox', ?, 198.00, 'USD', 'PAID', 'card')`,
-      [parentOrder1.insertId, 'TXN-CARD-' + Date.now()]
+       VALUES (?, 'jazzcash', ?, 198.00, 'USD', 'PAID', 'online')`,
+      [parentOrder1.insertId, txnRef1]
     );
 
-    // Seed Order 2: Buyer 2 buys Onions from Seller 2 via Bank Transfer (PENDING VERIFICATION)
+    // Seed Order 2: Buyer 2 buys Onions from Seller 2 via Cash on Delivery (COD - PENDING)
     const orderNum2 = 'KSN-' + Math.floor(100000 + Math.random() * 900000);
     const [parentOrder2] = await conn.query(
-      `INSERT INTO orders (order_number, buyer_id, total_amount, delivery_name, delivery_phone, delivery_address, payment_status, order_status)
-       VALUES (?, ?, 52.00, 'David Miller', '+1 555-678-9012', '45 Market Avenue, Suite 300, Central Grain Terminal', 'PENDING', 'PENDING')`,
+      `INSERT INTO orders (order_number, buyer_id, total_amount, delivery_name, delivery_phone, delivery_address, payment_method, online_provider, payment_status, transaction_reference, order_status)
+       VALUES (?, ?, 52.00, 'David Miller', '+92 345 6789012', '45 Market Avenue, Grain Terminal District, Rawalpindi', 'COD', NULL, 'PENDING', NULL, 'PENDING')`,
       [orderNum2, buyerUser2.insertId]
     );
 
     const [subOrder3] = await conn.query(
-      `INSERT INTO seller_orders (order_id, seller_id, subtotal, status)
-       VALUES (?, ?, 52.00, 'PENDING')`,
+      `INSERT INTO seller_orders (order_id, seller_id, subtotal, payment_method, online_provider, payment_status, transaction_reference, status)
+       VALUES (?, ?, 52.00, 'COD', NULL, 'PENDING', NULL, 'PENDING')`,
       [parentOrder2.insertId, seller2.insertId]
     );
 

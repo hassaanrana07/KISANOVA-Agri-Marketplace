@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Sprout, Lock, Mail, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { Sprout, Lock, Mail, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -13,32 +14,32 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Target return path (defaults to '/' or previous browsing action, e.g. /cart, /checkout, /products/5)
+  // Target return path (defaults to '/' or previous browsing action, e.g. /cart, /checkout)
   const returnTo = location.state?.from || '/';
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+
+    if (!email.trim() || !password) {
+      setErrorMessage('Please enter both your email address and password.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const res = await login(email, password, 'BUYER');
+      const res = await login(email.trim(), password, 'BUYER');
       if (res.success) {
-        // Return buyer directly to previous action
         navigate(returnTo, { replace: true });
       } else {
-        setErrorMessage(res.message);
+        setErrorMessage(res.message || 'Invalid email or password.');
       }
     } catch (err) {
-      setErrorMessage('Login failed. Please verify your credentials.');
+      setErrorMessage('Unable to connect to the server. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillDemoBuyer = (emailVal, passVal) => {
-    setEmail(emailVal);
-    setPassword(passVal);
   };
 
   return (
@@ -49,8 +50,15 @@ const LoginPage = () => {
           <div className="w-12 h-12 rounded-2xl bg-agro-600 text-white flex items-center justify-center mx-auto shadow-md shadow-agro-600/20">
             <Sprout className="w-7 h-7" />
           </div>
-          <h2 className="text-2xl font-black text-slate-900">Welcome Back to Kisanova</h2>
-          <p className="text-xs text-slate-500">Sign in to your buyer account to access orders and direct farmer chat.</p>
+          <div>
+            <span className="text-[11px] uppercase tracking-widest font-black text-agro-700 block">
+              AGRILINK · MARKETPLACE
+            </span>
+            <h2 className="text-2xl font-black text-slate-900 mt-0.5">Buyer Sign In</h2>
+          </div>
+          <p className="text-xs text-slate-500">
+            Sign in to track crop orders, delivery coordinates, and communicate with verified farmers.
+          </p>
         </div>
 
         {errorMessage && (
@@ -62,81 +70,74 @@ const LoginPage = () => {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1">Email Address</label>
+            <label className="text-xs font-bold text-slate-700 block mb-1.5" htmlFor="buyer-email">
+              Email Address
+            </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
+                id="buyer-email"
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-agro-500 focus:bg-white font-medium transition-all"
               />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1">Password</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-bold text-slate-700" htmlFor="buyer-password">
+                Password
+              </label>
+              <Link
+                to="/forgot-password"
+                className="text-[11px] font-bold text-agro-600 hover:text-agro-700 hover:underline transition-colors"
+              >
+                Forgot Password?
+              </Link>
+            </div>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
-                type="password"
+                id="buyer-password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
+                placeholder="Enter password"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-agro-500 focus:bg-white font-medium transition-all"
               />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600"
+                tabIndex={-1}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-agro-600 hover:bg-agro-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold shadow-md shadow-agro-600/20 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 bg-agro-600 hover:bg-agro-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold shadow-md shadow-agro-600/20 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
           >
             <span>{loading ? 'Authenticating...' : 'Sign In as Buyer'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        {/* Quick Demo Credentials Autofill */}
-        <div className="pt-4 border-t border-slate-100">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-agro-600" />
-            Quick Demo Autofill
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => fillDemoBuyer('buyer1@kisanova.com', 'Buyer@123456')}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold text-left transition-colors"
-            >
-              Demo Buyer 1
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemoBuyer('buyer2@kisanova.com', 'Buyer@123456')}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold text-left transition-colors"
-            >
-              Demo Buyer 2
-            </button>
-          </div>
-        </div>
-
         {/* Registration link & Farmer portal switch */}
-        <div className="text-center space-y-2 pt-2 text-xs text-slate-500">
+        <div className="text-center space-y-2 pt-2 text-xs text-slate-500 border-t border-slate-100">
           <p>
             Don't have a buyer account?{' '}
             <Link to="/register" className="font-bold text-agro-600 hover:text-agro-700 underline">
               Create an account
-            </Link>
-          </p>
-          <p className="text-[11px] pt-2 border-t border-slate-100">
-            Are you an agricultural producer?{' '}
-            <Link to="/seller/login" className="font-bold text-slate-800 hover:text-agro-600">
-              Go to Farmer / Seller Portal →
             </Link>
           </p>
         </div>

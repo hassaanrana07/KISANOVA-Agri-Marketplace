@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, ArrowRight, ShieldCheck, Clock, CheckCircle, AlertCircle, ShoppingBag } from 'lucide-react';
 import api from '../../services/api';
+import { formatPKR } from '../../utils/currency';
 
 const MyOrdersPage = () => {
   const [orders, setOrders] = useState([]);
@@ -123,7 +124,7 @@ const MyOrdersPage = () => {
                 <div className="sm:text-right">
                   <span className="text-xs text-slate-400 block">Total Amount</span>
                   <span className="text-2xl font-black text-slate-900">
-                    ${parseFloat(order.total_amount).toFixed(2)}
+                    {formatPKR(order.total_amount)}
                   </span>
                 </div>
 

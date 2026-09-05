@@ -11,10 +11,10 @@ const {
   getUsers,
   updateUserStatus
 } = require('../controllers/adminController');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 router.use(requireAuth);
-router.use(requireRole('ADMIN'));
+router.use(requireAdmin);
 
 router.get('/metrics', getAdminMetrics);
 

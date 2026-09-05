@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Sprout, ShieldCheck, Truck, Clock, HeartHandshake } from 'lucide-react';
+import { Sprout, ShieldCheck, Truck, Clock, HeartHandshake, ArrowRight } from 'lucide-react';
 
 const PublicFooter = () => {
   return (
@@ -52,6 +52,7 @@ const PublicFooter = () => {
 
       {/* Main Footer Links */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
+        {/* Brand Column */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-lg bg-agro-600 flex items-center justify-center text-white">
@@ -62,42 +63,54 @@ const PublicFooter = () => {
             </span>
           </div>
           <p className="text-xs leading-relaxed text-slate-400">
-            Kisanova is a next-generation agricultural trading infrastructure connecting organic cultivators, commercial grain farms, and produce growers directly with buyers worldwide.
+            Kisanova is a next-generation agricultural trading platform connecting certified cultivators, grain farmers, and produce growers directly with buyers nationwide.
           </p>
+          <div className="pt-2">
+            <Link
+              to="/seller/register"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-agro-600 hover:bg-agro-500 text-white text-xs font-bold transition-colors shadow-sm"
+            >
+              <span>Sell on Kisanova</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
 
+        {/* Marketplace */}
         <div>
           <h4 className="text-white font-semibold text-xs tracking-wider uppercase mb-4">Marketplace</h4>
-          <ul className="space-y-2 text-xs">
+          <ul className="space-y-2.5 text-xs">
             <li><Link to="/products" className="hover:text-agro-400 transition-colors">All Crops & Produce</Link></li>
             <li><Link to="/products?category=Grains%20%26%20Cereals" className="hover:text-agro-400 transition-colors">Grains & Cereals</Link></li>
             <li><Link to="/products?category=Fruits%20%26%20Vegetables" className="hover:text-agro-400 transition-colors">Fruits & Vegetables</Link></li>
-            <li><Link to="/products?category=Organic%20Produce" className="hover:text-agro-400 transition-colors">Organic Wildflower Honey</Link></li>
+            <li><Link to="/products?category=Organic%20Produce" className="hover:text-agro-400 transition-colors">Organic Honey & Herbs</Link></li>
             <li><Link to="/products?category=Cash%20Crops" className="hover:text-agro-400 transition-colors">Cash Crops & Cotton</Link></li>
           </ul>
         </div>
 
+        {/* Farmer Portal & Resources */}
         <div>
-          <h4 className="text-white font-semibold text-xs tracking-wider uppercase mb-4">Farmer Resources</h4>
-          <ul className="space-y-2 text-xs">
+          <h4 className="text-white font-semibold text-xs tracking-wider uppercase mb-4">Cultivator Hub</h4>
+          <ul className="space-y-2.5 text-xs">
+            <li><Link to="/seller/register" className="text-agro-400 hover:text-agro-300 font-semibold transition-colors">Apply as Verified Farmer</Link></li>
             <li><Link to="/seller/login" className="hover:text-agro-400 transition-colors">Farmer / Seller Login</Link></li>
-            <li><Link to="/seller/register" className="hover:text-agro-400 transition-colors">Apply as Verified Farmer</Link></li>
-            <li><span className="text-slate-500">Crop Quality Standards</span></li>
-            <li><span className="text-slate-500">Escrow & Secure Payouts</span></li>
+            <li><Link to="/faqs" className="hover:text-agro-400 transition-colors">How Selling Works</Link></li>
+            <li><Link to="/terms" className="hover:text-agro-400 transition-colors">Crop Quality & Dispatch Rules</Link></li>
           </ul>
         </div>
 
+        {/* Support & Legal */}
         <div>
-          <h4 className="text-white font-semibold text-xs tracking-wider uppercase mb-4">Marketplace Integrity</h4>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            All listings comply with national agricultural hygiene guidelines. Quality certificates verified by Kisanova Administrative Inspection Team.
+          <h4 className="text-white font-semibold text-xs tracking-wider uppercase mb-4">Customer Support & Legal</h4>
+          <ul className="space-y-2.5 text-xs">
+            <li><Link to="/faqs" className="hover:text-agro-400 transition-colors">Frequently Asked Questions (FAQs)</Link></li>
+            <li><Link to="/privacy" className="hover:text-agro-400 transition-colors">Privacy Policy</Link></li>
+            <li><Link to="/terms" className="hover:text-agro-400 transition-colors">Terms of Service</Link></li>
+            <li><span className="text-slate-500">Logistics & Escrow Support</span></li>
+          </ul>
+          <p className="text-[11px] text-slate-500 mt-4 leading-relaxed">
+            All agricultural listings adhere to national quality and sanitation standards.
           </p>
-          <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Admin Portal:</span>
-            <Link to="/admin/login" className="text-slate-400 hover:text-white underline">
-              Admin Sign In
-            </Link>
-          </div>
         </div>
       </div>
 

@@ -36,6 +36,12 @@ const getCart = async (req, res) => {
          s.farm_name,
          s.phone as seller_phone,
          s.address as seller_address,
+         s.delivery_available,
+         s.pickup_available,
+         s.delivery_fee as seller_delivery_fee,
+         s.estimated_delivery_min_days,
+         s.estimated_delivery_max_days,
+         s.pickup_instructions,
          COALESCE(
            (SELECT image_url FROM product_images WHERE product_id = p.id ORDER BY is_primary DESC, id ASC LIMIT 1),
            'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=300&q=80'
@@ -64,6 +70,12 @@ const getCart = async (req, res) => {
           farm_name: item.farm_name,
           seller_phone: item.seller_phone,
           seller_address: item.seller_address,
+          delivery_available: item.delivery_available !== 0,
+          pickup_available: item.pickup_available !== 0,
+          delivery_fee: item.seller_delivery_fee !== null ? parseFloat(item.seller_delivery_fee) : 300,
+          estimated_delivery_min_days: item.estimated_delivery_min_days || 2,
+          estimated_delivery_max_days: item.estimated_delivery_max_days || 5,
+          pickup_instructions: item.pickup_instructions || '',
           seller_subtotal: 0,
           items: []
         };
@@ -131,7 +143,7 @@ const addToCart = async (req, res) => {
     }
 
     const product = products[0];
-    if (product.status !== 'APPROVED' || product.approval_status !== 'APPROVED') {
+    if (product.status !== 'ACTIVE' || product.approval_status !== 'APPROVED') {
       return res.status(400).json({
         success: false,
         message: 'This product is currently not available for purchase.'

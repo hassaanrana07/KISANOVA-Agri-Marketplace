@@ -1,0 +1,488 @@
+{
+  "provinces": [
+    {
+      "id": "punjab",
+      "name": "Punjab",
+      "center": [31.1704, 72.7097],
+      "districts": [
+        {
+          "name": "Sahiwal",
+          "tehsils": [
+            {
+              "name": "Sahiwal",
+              "center": [30.6682, 73.1114],
+              "sampleLocalities": ["Chak 88/9-L", "Chak 86/9-L", "Chak 90/9-L", "Noor Shah", "Harappa Agro Zone", "Naiwala", "Fateh Sher"]
+            },
+            {
+              "name": "Chichawatni",
+              "center": [30.5333, 72.7000],
+              "sampleLocalities": ["Chak 168/9-L", "Chak 110/7-R", "Kamalia Road Chak", "Ghaziabad", "Chak 42/12-L"]
+            }
+          ]
+        },
+        {
+          "name": "Multan",
+          "tehsils": [
+            {
+              "name": "Multan City",
+              "center": [30.1575, 71.5249],
+              "sampleLocalities": ["Bosan Road Orchards", "Suraj Miani", "Nawan Shehr", "Qadirpur Raan"]
+            },
+            {
+              "name": "Multan Saddar",
+              "center": [30.1984, 71.4687],
+              "sampleLocalities": ["Makhdoom Rashid", "Lutfabad Mango Belt", "Budhla Sant", "Sher Shah"]
+            },
+            {
+              "name": "Shujabad",
+              "center": [29.8803, 71.2950],
+              "sampleLocalities": ["Raja Ram", "Chak 14-M", "Sikandarabad", "Basti Dad"]
+            },
+            {
+              "name": "Jalalpur Pirwala",
+              "center": [29.5050, 71.2200],
+              "sampleLocalities": ["Chak Taragarh", "Khatwahan", "Kotla Chakar", "Bait Kech"]
+            }
+          ]
+        },
+        {
+          "name": "Faisalabad",
+          "tehsils": [
+            {
+              "name": "Faisalabad City",
+              "center": [31.4504, 73.1350],
+              "sampleLocalities": ["Jhang Road Agro Farms", "Dijkot Belt", "Narwala Road", "Millat Town"]
+            },
+            {
+              "name": "Jaranwala",
+              "center": [31.3342, 73.4197],
+              "sampleLocalities": ["Chak 240/GB", "Chak 115/GB", "Awagat", "Buchiana", "Rodala"]
+            },
+            {
+              "name": "Samundri",
+              "center": [31.0636, 72.9619],
+              "sampleLocalities": ["Chak 466/GB", "Chak 134/GB", "Muridwala", "Chak 214/GB"]
+            },
+            {
+              "name": "Tandlianwala",
+              "center": [31.0347, 73.1319],
+              "sampleLocalities": ["Chak 409/GB", "Mamon Kanjan", "Chak 428/GB", "Garh"]
+            },
+            {
+              "name": "Chak Jhumra",
+              "center": [31.5667, 73.1833],
+              "sampleLocalities": ["Chak 185/RB", "Chak 153/RB", "Salempur", "Sahianwala"]
+            }
+          ]
+        },
+        {
+          "name": "Sargodha",
+          "tehsils": [
+            {
+              "name": "Sargodha City",
+              "center": [32.0836, 72.6711],
+              "sampleLocalities": ["Bhagtanwala Citrus Groves", "Chak 88/NB", "Chak 46/NB", "Lalliani"]
+            },
+            {
+              "name": "Bhalwal",
+              "center": [32.2661, 72.8986],
+              "sampleLocalities": ["Chak 8/ML Kinnow Belt", "Chak 10/ML", "Phularwan", "Kot Momin Link"]
+            },
+            {
+              "name": "Kot Momin",
+              "center": [32.1894, 73.0308],
+              "sampleLocalities": ["Miani", "Midh Ranjha", "Mateela Kinnow Orchards", "Chak 54/SB"]
+            },
+            {
+              "name": "Shahpur",
+              "center": [32.2833, 72.4667],
+              "sampleLocalities": ["Shahpur Saddar", "Jhawarian", "Aqil Shah", "Kalyar"]
+            }
+          ]
+        },
+        {
+          "name": "Rahim Yar Khan",
+          "tehsils": [
+            {
+              "name": "Rahim Yar Khan",
+              "center": [28.4212, 70.2989],
+              "sampleLocalities": ["Chak 72/NP", "Chak 108/P Cotton Belt", "Kot Samaba", "Taranda Sawaey Khan"]
+            },
+            {
+              "name": "Sadiqabad",
+              "center": [28.3094, 70.1333],
+              "sampleLocalities": ["Chak 142/P", "Manthar", "Sanjar Pur", "Ahmedpur Lamma"]
+            },
+            {
+              "name": "Khanpur",
+              "center": [28.6472, 70.6603],
+              "sampleLocalities": ["Chak 45/P", "Zahir Pir Sugarcane Belt", "Jetha Bhutta", "Bagho Bahar"]
+            },
+            {
+              "name": "Liaquatpur",
+              "center": [28.9328, 70.9575],
+              "sampleLocalities": ["Chak 38/A", "Khan Bela", "Feroza", "Tranda Muhammad Pannah"]
+            }
+          ]
+        },
+        {
+          "name": "Bahawalpur",
+          "tehsils": [
+            {
+              "name": "Bahawalpur City",
+              "center": [29.3956, 71.6836],
+              "sampleLocalities": ["Baghdad-ul-Jadeed Farms", "Mari Qasim Shah", "Saddar Agro Belt"]
+            },
+            {
+              "name": "Ahmedpur East",
+              "center": [29.1431, 71.2589],
+              "sampleLocalities": ["Dera Nawab Sahib", "Uch Sharif", "Mubarakpur", "Kotla Musa Khan"]
+            },
+            {
+              "name": "Yazman",
+              "center": [29.1211, 71.7450],
+              "sampleLocalities": ["Chak 50/DB", "Chak 80/DB", "Head Rajkan", "Chak 42/DNB"]
+            },
+            {
+              "name": "Hasilpur",
+              "center": [29.6975, 72.5539],
+              "sampleLocalities": ["Chak 58/F", "Chak 79/F", "Qaimpur", "Hazratwala"]
+            }
+          ]
+        },
+        {
+          "name": "Lahore",
+          "tehsils": [
+            {
+              "name": "Raiwind",
+              "center": [31.2500, 74.2167],
+              "sampleLocalities": ["Pajia Vegetable Belt", "Barki Road Farms", "Sundar Agro Cluster", "Manga Mandi"]
+            },
+            {
+              "name": "Model Town",
+              "center": [31.4833, 74.3167],
+              "sampleLocalities": ["Kahna Nau", "Katcha", "Pandoki Farms"]
+            },
+            {
+              "name": "Lahore Cantt",
+              "center": [31.5204, 74.3587],
+              "sampleLocalities": ["Burki", "Hudiara", "Bedian Road Agro Estates"]
+            }
+          ]
+        },
+        {
+          "name": "Okara",
+          "tehsils": [
+            {
+              "name": "Okara",
+              "center": [30.8138, 73.4534],
+              "sampleLocalities": ["Military Dairy Farms", "Chak 4/4-L Potato Hub", "Chak 32/2-L", "Satghara"]
+            },
+            {
+              "name": "Renala Khurd",
+              "center": [30.8833, 73.5833],
+              "sampleLocalities": ["Mitchells Fruit Orchards", "Chak 14/1-L", "Bazida", "Chuchak"]
+            },
+            {
+              "name": "Depalpur",
+              "center": [30.6708, 73.6533],
+              "sampleLocalities": ["Basirpur", "Hujra Shah Muqeem", "Chak 22/D", "Wasawewala"]
+            }
+          ]
+        },
+        {
+          "name": "Khanewal",
+          "tehsils": [
+            {
+              "name": "Khanewal",
+              "center": [30.3000, 71.9333],
+              "sampleLocalities": ["Chak 168/10-R", "Chak 72/15-L", "Kacha Khoh", "Sarai Sidhu"]
+            },
+            {
+              "name": "Mian Channu",
+              "center": [30.4397, 72.3556],
+              "sampleLocalities": ["Chak 130/15-L", "Tulamba", "Chak 82/15-L", "Abdul Hakim"]
+            },
+            {
+              "name": "Kabirwala",
+              "center": [30.4000, 71.8667],
+              "sampleLocalities": ["Kukkar Hatta", "Sardarpur", "Kohiwala", "Makhdum Pur"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sindh",
+      "name": "Sindh",
+      "center": [26.0000, 68.5000],
+      "districts": [
+        {
+          "name": "Sukkur",
+          "tehsils": [
+            {
+              "name": "Sukkur City",
+              "center": [27.7052, 68.8574],
+              "sampleLocalities": ["Old Sukkur Date Palm Belt", "Arain Date Farms", "Nawa Goth"]
+            },
+            {
+              "name": "Rohri",
+              "center": [27.6744, 68.8953],
+              "sampleLocalities": ["Kandhra", "Patni", "Ali Wahan", "Dubar Date Orchards"]
+            },
+            {
+              "name": "Pano Aqil",
+              "center": [27.8578, 69.1122],
+              "sampleLocalities": ["Sultanpur", "Baho Dero", "Dad Leghari", "Hingorja"]
+            }
+          ]
+        },
+        {
+          "name": "Hyderabad",
+          "tehsils": [
+            {
+              "name": "Hyderabad Rural",
+              "center": [25.3960, 68.3578],
+              "sampleLocalities": ["Halanaka Agro Belt", "Tando Jam Agri Cluster", "Matiari Link", "Husri"]
+            },
+            {
+              "name": "Qasimabad",
+              "center": [25.4050, 68.3320],
+              "sampleLocalities": ["Sheedi Goth", "Wadhu Wah", "Nasim Nagar Agro Outskirts"]
+            }
+          ]
+        },
+        {
+          "name": "Khairpur",
+          "tehsils": [
+            {
+              "name": "Khairpur",
+              "center": [27.5295, 68.7592],
+              "sampleLocalities": ["Therhi Aseel Date Palm Zone", "Babhur Date Groves", "Pir Jo Goth", "Kot Diji"]
+            },
+            {
+              "name": "Kingri",
+              "center": [27.6000, 68.6500],
+              "sampleLocalities": ["Ahmedpur", "Draza Sharif", "Sethi"]
+            },
+            {
+              "name": "Gambat",
+              "center": [27.3522, 68.5208],
+              "sampleLocalities": ["Agra", "Belharo", "Ripri Sugarcane Cluster"]
+            }
+          ]
+        },
+        {
+          "name": "Mirpur Khas",
+          "tehsils": [
+            {
+              "name": "Mirpur Khas",
+              "center": [25.5276, 69.0159],
+              "sampleLocalities": ["Sindhri Mango Orchards", "Chittori Road Farms", "Jarwar", "Khaan"]
+            },
+            {
+              "name": "Digri",
+              "center": [25.1583, 69.1111],
+              "sampleLocalities": ["Tando Jan Mohammad", "Mirwah Gorchani", "Deh 166"]
+            },
+            {
+              "name": "Kot Ghulam Muhammad",
+              "center": [25.3000, 69.2500],
+              "sampleLocalities": ["Bhurgari", "Deh 303", "Samaro Link"]
+            }
+          ]
+        },
+        {
+          "name": "Larkana",
+          "tehsils": [
+            {
+              "name": "Larkana",
+              "center": [27.5600, 68.2264],
+              "sampleLocalities": ["Dokri Guava Groves", "Baqrani Rice Belt", "Mohenjo-Daro Agro Buffer", "Arija"]
+            },
+            {
+              "name": "Ratodero",
+              "center": [27.8017, 68.2883],
+              "sampleLocalities": ["Naudero", "Bhangar", "Pir Bakhsh Bhutto"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "khyber_pakhtunkhwa",
+      "name": "Khyber Pakhtunkhwa",
+      "center": [34.0000, 71.5000],
+      "districts": [
+        {
+          "name": "Peshawar",
+          "tehsils": [
+            {
+              "name": "Peshawar City",
+              "center": [34.0151, 71.5249],
+              "sampleLocalities": ["Taru Jabba Plum & Peach Belt", "Chamkani", "Budhai", "Urmar"]
+            },
+            {
+              "name": "Shah Alam",
+              "center": [34.0833, 71.5500],
+              "sampleLocalities": ["Naguman Riverine Farms", "Khazana Sugar Belt", "Daudzai"]
+            },
+            {
+              "name": "Badaber",
+              "center": [33.9167, 71.5833],
+              "sampleLocalities": ["Sheikhan", "Matani", "Masho Gagar"]
+            }
+          ]
+        },
+        {
+          "name": "Mardan",
+          "tehsils": [
+            {
+              "name": "Mardan",
+              "center": [34.1989, 72.0403],
+              "sampleLocalities": ["Sugar Crops Research Farms", "Takht-i-Bahi Vegetable Cluster", "Gujar Garhi", "Baghdada"]
+            },
+            {
+              "name": "Katlang",
+              "center": [34.3500, 72.0833],
+              "sampleLocalities": ["Babozai", "Qasimi", "Alo"]
+            }
+          ]
+        },
+        {
+          "name": "Swat",
+          "tehsils": [
+            {
+              "name": "Babuzai (Mingora)",
+              "center": [34.7717, 72.3602],
+              "sampleLocalities": ["Kabal Apple Orchards", "Barikot Peach Groves", "Charbagh", "Matta"]
+            },
+            {
+              "name": "Matta",
+              "center": [34.9333, 72.4167],
+              "sampleLocalities": ["Khwazakhela", "Chuprial Walnut Cluster", "Lalko Valley"]
+            }
+          ]
+        },
+        {
+          "name": "Dera Ismail Khan",
+          "tehsils": [
+            {
+              "name": "D.I. Khan",
+              "center": [31.8314, 70.9019],
+              "sampleLocalities": ["Dhakki Date Groves", "Paharpur", "Chashma Right Bank Canal Belt", "Paroa"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "balochistan",
+      "name": "Balochistan",
+      "center": [28.5000, 65.5000],
+      "districts": [
+        {
+          "name": "Quetta",
+          "tehsils": [
+            {
+              "name": "Quetta City",
+              "center": [30.1798, 66.9750],
+              "sampleLocalities": ["Hanna Urak Apple Orchards", "Kuchlak Cherry Belt", "Baleli", "Sariab"]
+            }
+          ]
+        },
+        {
+          "name": "Turbat (Kech)",
+          "tehsils": [
+            {
+              "name": "Turbat",
+              "center": [26.0031, 63.0544],
+              "sampleLocalities": ["Dasht Begum Jangi Date Palm Hub", "Kech River Farms", "Nodiz", "Tump"]
+            }
+          ]
+        },
+        {
+          "name": "Jaffarabad",
+          "tehsils": [
+            {
+              "name": "Dera Allah Yar",
+              "center": [28.3736, 68.3508],
+              "sampleLocalities": ["Pat Feeder Canal Rice Belt", "Usta Muhammad", "Rojhan Jamali"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "islamabad",
+      "name": "Islamabad Capital Territory",
+      "center": [33.6844, 73.0479],
+      "districts": [
+        {
+          "name": "Islamabad",
+          "tehsils": [
+            {
+              "name": "Islamabad Agro Zone",
+              "center": [33.6844, 73.0479],
+              "sampleLocalities": ["Chak Shahzad Organic Farms", "Tarlai Kalan", "Sihala", "Bhara Kahu", "Alipur Farash"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "azad_kashmir",
+      "name": "Azad Jammu & Kashmir",
+      "center": [33.9000, 73.8000],
+      "districts": [
+        {
+          "name": "Mirpur",
+          "tehsils": [
+            {
+              "name": "Mirpur",
+              "center": [33.1484, 73.7519],
+              "sampleLocalities": ["Afzalpur", "Chakswari", "Islamgarh Citrus Zone"]
+            }
+          ]
+        },
+        {
+          "name": "Rawalakot (Poonch)",
+          "tehsils": [
+            {
+              "name": "Rawalakot",
+              "center": [33.8578, 73.7604],
+              "sampleLocalities": ["Banjosa Apple Groves", "Hajira", "Khai Gala"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gilgit_baltistan",
+      "name": "Gilgit-Baltistan",
+      "center": [35.8000, 74.5000],
+      "districts": [
+        {
+          "name": "Gilgit",
+          "tehsils": [
+            {
+              "name": "Gilgit City",
+              "center": [35.9208, 74.3144],
+              "sampleLocalities": ["Danyore Cherry Orchards", "Nomal Apricot Belt", "Bagrot Valley"]
+            }
+          ]
+        },
+        {
+          "name": "Skardu",
+          "tehsils": [
+            {
+              "name": "Skardu",
+              "center": [35.2971, 75.6333],
+              "sampleLocalities": ["Shigar Apricot Cluster", "Kachura Organic Valley", "Satpara Basin"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

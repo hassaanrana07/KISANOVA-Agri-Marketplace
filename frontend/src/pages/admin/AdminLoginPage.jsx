@@ -1,115 +1,140 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ShieldAlert, Lock, Mail, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShieldCheck, Lock, Mail, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const AdminLoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const isPort5174 = typeof window !== 'undefined' && window.location.port === '5174';
+  const dashboardUrl = isPort5174 ? '/' : '/admin';
+  const forgotUrl = isPort5174 ? '/forgot-password' : '/admin/forgot-password';
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+
+    if (!email.trim() || !password) {
+      setErrorMessage('Please enter both administrator username/email and password.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const res = await login(email, password, 'ADMIN');
+      const res = await login(email.trim(), password, 'ADMIN');
       if (res.success) {
-        navigate('/admin');
+        navigate(dashboardUrl);
       } else {
-        setErrorMessage(res.message);
+        setErrorMessage(res.message || 'Invalid administrative credentials.');
       }
     } catch (err) {
-      setErrorMessage('Admin authentication failed.');
+      setErrorMessage('Unable to connect to the server. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6 text-white">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-12">
+      <div className="max-w-md w-full bg-white border border-slate-200 rounded-3xl p-8 shadow-xl space-y-6">
+        {/* Header Branding */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
-            <ShieldAlert className="w-7 h-7" />
+          <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-emerald-600/20">
+            <ShieldCheck className="w-7 h-7" />
           </div>
-          <h2 className="text-2xl font-black tracking-wider text-white">KISANOVA ADMIN</h2>
-          <p className="text-xs text-slate-400">
-            Marketplace Governance & Quality Moderation Console
+          <div>
+            <span className="text-[11px] uppercase tracking-widest font-black text-emerald-700 block">
+              AGRILINK
+            </span>
+            <h2 className="text-2xl font-black tracking-tight text-slate-900 mt-0.5">
+              Admin Governance Console
+            </h2>
+          </div>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Marketplace compliance, producer auditing, and transaction oversight.
           </p>
         </div>
 
+        {/* Dynamic Alerts */}
         {errorMessage && (
-          <div className="p-3.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-semibold flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
             <span>{errorMessage}</span>
           </div>
         )}
 
+        {/* Form (No demo credentials) */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-slate-300 block mb-1">Admin Identity Email</label>
+            <label className="text-xs font-bold text-slate-700 block mb-1.5" htmlFor="admin-login-email">
+              Admin Email / Username
+            </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
               <input
-                type="email"
+                id="admin-login-email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@kisanova.com"
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                placeholder="admin@agrilink.com"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white font-medium transition-all"
               />
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-bold text-slate-300 block mb-1">Administrative Secret</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-bold text-slate-700" htmlFor="admin-login-pass">
+                Administrative Password
+              </label>
+              <Link
+                to={forgotUrl}
+                className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline transition-colors"
+              >
+                Forgot Password?
+              </Link>
+            </div>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
               <input
-                type="password"
+                id="admin-login-pass"
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                placeholder="Enter password"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white font-medium transition-all"
               />
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600"
+                tabIndex={-1}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/30 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
           >
             <span>{loading ? 'Validating Token...' : 'Enter Governance Console'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
-
-        {/* Quick Demo Autofill */}
-        <div className="pt-4 border-t border-slate-800">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-emerald-400" />
-            Quick Demo Autofill
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setEmail('admin@kisanova.com');
-              setPassword('Admin@123456');
-            }}
-            className="w-full py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold text-left transition-colors flex justify-between items-center"
-          >
-            <span>Admin Demo Account</span>
-            <span className="text-[10px] text-emerald-400">Fill Credentials</span>
-          </button>
-        </div>
       </div>
     </div>
   );

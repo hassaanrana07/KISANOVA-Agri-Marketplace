@@ -11,9 +11,12 @@ import {
   ArrowLeft,
   MessageSquare,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Printer
 } from 'lucide-react';
 import api from '../../services/api';
+import PrintableReceiptModal from '../../components/common/PrintableReceiptModal';
+import { formatPKR } from '../../utils/currency';
 
 const OrderDetailPage = () => {
   const { id } = useParams();
@@ -21,6 +24,8 @@ const OrderDetailPage = () => {
   const [orderData, setOrderData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState(null);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -55,6 +60,42 @@ const OrderDetailPage = () => {
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to start chat with seller.');
     }
+  };
+
+  const handleOpenReceipt = async () => {
+    try {
+      const res = await api.get(`/payments/receipt/${id}`);
+      if (res.data.success) {
+        setReceiptData(res.data.data);
+        setReceiptModalOpen(true);
+        return;
+      }
+    } catch (e) {
+      // Fallback format from orderData
+    }
+
+    const allItems = [];
+    sellerOrders.forEach(so => {
+      so.items.forEach(itm => {
+        allItems.push({ ...itm, farm_name: so.farm_name });
+      });
+    });
+
+    setReceiptData({
+      receiptNumber: `RCP-${order.order_number}`,
+      orderNumber: order.order_number,
+      orderDate: order.created_at,
+      buyerName: order.delivery_name,
+      buyerPhone: order.delivery_phone,
+      deliveryAddress: order.delivery_address,
+      paymentMethod: order.payment_method || 'COD',
+      onlineProvider: order.online_provider,
+      paymentStatus: order.payment_status,
+      transactionReference: order.transaction_reference || 'N/A',
+      totalAmount: order.total_amount,
+      items: allItems
+    });
+    setReceiptModalOpen(true);
   };
 
   if (loading) {
@@ -100,7 +141,7 @@ const OrderDetailPage = () => {
             ) : (
               <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" />
-                PENDING VERIFICATION
+                PENDING
               </span>
             )}
           </div>
@@ -109,11 +150,20 @@ const OrderDetailPage = () => {
           </p>
         </div>
 
-        <div className="sm:text-right">
-          <span className="text-xs text-slate-400 block">Combined Total</span>
-          <span className="text-3xl font-black text-slate-900">
-            ${parseFloat(order.total_amount).toFixed(2)}
-          </span>
+        <div className="flex items-center gap-3 sm:text-right">
+          <button
+            onClick={handleOpenReceipt}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm border border-slate-200"
+          >
+            <Printer className="w-3.5 h-3.5 text-agro-700" />
+            <span>Official Receipt</span>
+          </button>
+          <div>
+            <span className="text-xs text-slate-400 block">Combined Total</span>
+            <span className="text-3xl font-black text-slate-900">
+              {formatPKR(order.total_amount)}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -214,7 +264,7 @@ const OrderDetailPage = () => {
                 <div className="text-right border-l border-slate-200 pl-4">
                   <span className="text-[10px] text-slate-400 uppercase font-semibold block">Farm Subtotal</span>
                   <span className="text-sm font-black text-slate-900">
-                    ${parseFloat(so.subtotal).toFixed(2)}
+                    {formatPKR(so.subtotal)}
                   </span>
                 </div>
               </div>
@@ -238,14 +288,14 @@ const OrderDetailPage = () => {
                         {item.product_title}
                       </Link>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Quantity: <strong className="text-slate-700">{item.quantity} {item.product_unit}</strong> @ ${parseFloat(item.unit_price).toFixed(2)} / {item.product_unit}
+                        Quantity: <strong className="text-slate-700">{item.quantity} {item.product_unit}</strong> @ {formatPKR(item.unit_price)} / {item.product_unit}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-4">
                     <span className="text-sm font-black text-slate-900">
-                      ${parseFloat(item.subtotal).toFixed(2)}
+                      {formatPKR(item.subtotal)}
                     </span>
 
                     {/* Chat with Seller for this Product */}
@@ -263,6 +313,13 @@ const OrderDetailPage = () => {
           </div>
         ))}
       </div>
+
+      {/* Official Printable Receipt Modal */}
+      <PrintableReceiptModal
+        isOpen={receiptModalOpen}
+        onClose={() => setReceiptModalOpen(false)}
+        receiptData={receiptData}
+      />
     </div>
   );
 };

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import { useCart } from '../../context/CartContext';
+import { formatPKR } from '../../utils/currency';
 
 const categoryList = [
   { name: 'Grains & Cereals', desc: 'Wheat, basmati rice, corn & barley', img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=400&q=80' },
@@ -55,24 +56,35 @@ const HomePage = () => {
   };
 
   return (
-    <div className="space-y-16 pb-16">
-      {/* 1. Hero Section */}
-      <section className="relative bg-gradient-to-b from-agro-900 via-agro-950 to-slate-900 text-white overflow-hidden py-20 lg:py-28 px-4 sm:px-6 lg:px-8">
-        {/* Subtle Background Pattern */}
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#64b775_1px,transparent_1px)] [background-size:16px_16px]"></div>
+    <div className="space-y-16 pb-16 max-w-full overflow-x-hidden">
+      {/* 1. Hero Section with Agricultural Landscape Imagery */}
+      <section className="relative bg-slate-950 text-white overflow-hidden py-20 lg:py-28 px-4 sm:px-6 lg:px-8">
+        {/* Background Image with Dark Vignette Overlay */}
+        <div className="absolute inset-0 z-0">
+          <img
+            src="https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=2000&q=80"
+            alt="Lush green agricultural fields in Pakistan"
+            className="w-full h-full object-cover object-center opacity-25 scale-105 transform duration-1000"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/85 to-agro-950/75"></div>
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#22c55e_1px,transparent_1px)] [background-size:20px_20px]"></div>
+        </div>
 
-        <div className="relative max-w-5xl mx-auto text-center space-y-8">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-agro-500/20 border border-agro-400/30 text-agro-300 text-xs font-semibold uppercase tracking-wider backdrop-blur-sm">
+        <div className="relative z-10 max-w-5xl mx-auto text-center space-y-8">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-agro-500/20 border border-agro-400/40 text-agro-300 text-xs font-bold uppercase tracking-wider backdrop-blur-md shadow-inner">
             <Sparkles className="w-3.5 h-3.5 text-agro-400" />
-            Verified Direct-From-Farm Marketplace
+            Pakistan's Direct Farm-to-Buyer Marketplace
           </div>
 
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-tight">
-            Source Fresh Crops Directly From <span className="text-agro-400 underline decoration-agro-500/50">Verified Growers</span>
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.15]">
+            Fresh Harvests Direct From <br className="hidden sm:inline" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-agro-300 via-agro-400 to-emerald-300 underline decoration-agro-500/40">
+              Verified Farmers
+            </span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto font-normal leading-relaxed">
-            Eliminate intermediary markups. Buy grains, seasonal fruits, organic produce, and cash crops directly from audited agricultural producers with multi-seller checkout and escrow security.
+          <p className="text-sm sm:text-lg text-slate-200 max-w-3xl mx-auto font-normal leading-relaxed drop-shadow-sm">
+            Bypass commission agents and middlemen. Procure certified wheat, basmati rice, seasonal fruits, organic produce, and cash crops directly from audited farm fields with GPS boundary mapping, 100% Cash on Delivery, and direct dispatch.
           </p>
 
           {/* Hero Search Bar */}
@@ -81,38 +93,56 @@ const HomePage = () => {
               <Search className="w-5 h-5 text-slate-400 mr-3 flex-shrink-0" />
               <input
                 type="text"
-                placeholder="Search crops: Wheat, Basmati Rice, Alphonso Mangoes, Cotton..."
+                placeholder="Search crops: Wheat, Super Basmati Rice, Mangoes, Cotton..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-sm font-medium focus:outline-none placeholder:text-slate-400"
+                className="w-full text-xs sm:text-sm font-medium focus:outline-none placeholder:text-slate-400"
               />
             </div>
             <button
               type="submit"
-              className="px-6 py-3 bg-agro-600 hover:bg-agro-500 text-white rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-lg shadow-agro-600/30"
+              className="px-6 py-3 bg-agro-600 hover:bg-agro-500 text-white rounded-xl font-bold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 shadow-lg shadow-agro-600/30"
             >
-              <span>Explore Marketplace</span>
+              <span>Search Harvests</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
 
+          {/* Hero Dual CTA Actions */}
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+            <Link
+              to="/products"
+              className="px-6 py-3 rounded-xl bg-agro-600 hover:bg-agro-500 text-white font-bold text-xs sm:text-sm transition-all shadow-lg shadow-agro-600/25 flex items-center gap-2"
+            >
+              <span>Explore Fresh Produce</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/seller/register"
+              className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs sm:text-sm transition-all backdrop-blur-sm flex items-center gap-2"
+            >
+              <Sprout className="w-4 h-4 text-agro-400" />
+              <span>Register Your Farm</span>
+            </Link>
+          </div>
+
           {/* Quick Metrics Bar */}
-          <div className="pt-6 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto text-left">
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-              <p className="text-2xl font-black text-agro-400">100%</p>
-              <p className="text-xs text-slate-400">Admin-Audited Sellers</p>
+          <div className="pt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto text-left">
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+              <p className="text-xl sm:text-2xl font-black text-agro-400">100% COD</p>
+              <p className="text-[11px] sm:text-xs text-slate-300 font-medium">Cash on Delivery Only</p>
             </div>
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-              <p className="text-2xl font-black text-agro-400">Multi-Seller</p>
-              <p className="text-xs text-slate-400">Single Unified Cart</p>
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+              <p className="text-xl sm:text-2xl font-black text-agro-400">GIS Verified</p>
+              <p className="text-[11px] sm:text-xs text-slate-300 font-medium">Audited Farm Boundaries</p>
             </div>
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-              <p className="text-2xl font-black text-agro-400">0%</p>
-              <p className="text-xs text-slate-400">Intermediary Markups</p>
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+              <p className="text-xl sm:text-2xl font-black text-agro-400">Direct Pricing</p>
+              <p className="text-[11px] sm:text-xs text-slate-300 font-medium">Zero Commission Agents</p>
             </div>
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-              <p className="text-2xl font-black text-agro-400">Direct Chat</p>
-              <p className="text-xs text-slate-400">Live Video/Photo Proof</p>
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+              <p className="text-xl sm:text-2xl font-black text-agro-400">Direct Chat</p>
+              <p className="text-[11px] sm:text-xs text-slate-300 font-medium">Real-Time Messaging</p>
             </div>
           </div>
         </div>
@@ -231,7 +261,7 @@ const HomePage = () => {
 
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                     <div>
-                      <span className="text-lg font-black text-slate-900">${parseFloat(product.price).toFixed(2)}</span>
+                      <span className="text-lg font-black text-slate-900">{formatPKR(product.price)}</span>
                       <span className="text-xs text-slate-500 ml-1">/ {product.unit}</span>
                     </div>
 

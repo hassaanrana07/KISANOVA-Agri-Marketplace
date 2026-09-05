@@ -9,14 +9,20 @@ const {
   getSellerOrders,
   getSellerOrderById,
   updateSellerOrderStatus,
+  updateSellerOrderPaymentStatus,
   getSellerProfile,
-  updateSellerProfile
+  updateSellerProfile,
+  uploadMediaFile
 } = require('../controllers/sellerController');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireApprovedSeller } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
 router.use(requireAuth);
-router.use(requireRole('SELLER'));
+
+// Direct media upload for farm logo, profile images, and certificates
+router.post('/upload-media', upload.single('file'), uploadMediaFile);
+
+router.use(requireApprovedSeller);
 
 router.get('/dashboard', getDashboardMetrics);
 router.get('/profile', getSellerProfile);
@@ -30,5 +36,6 @@ router.delete('/products/:id', deleteProduct);
 router.get('/orders', getSellerOrders);
 router.get('/orders/:id', getSellerOrderById);
 router.put('/orders/:id/status', updateSellerOrderStatus);
+router.put('/orders/:id/payment-status', updateSellerOrderPaymentStatus);
 
 module.exports = router;

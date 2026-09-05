@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Upload, Save, Sprout, AlertCircle, CheckCircle } from 'lucide-react';
 import api from '../../services/api';
+import { useLanguage } from '../../context/LanguageContext';
 
 const categories = [
-  'Grains & Cereals',
-  'Fruits & Vegetables',
-  'Organic Produce',
-  'Dairy & Farm',
-  'Cash Crops',
-  'Spices & Herbs',
-  'Seeds & Plantlings'
+  { value: 'Grains & Cereals', key: 'product.category_grains' },
+  { value: 'Fruits & Vegetables', key: 'product.category_fruits_veg' },
+  { value: 'Organic Produce', key: 'product.category_organic' },
+  { value: 'Dairy & Farm', key: 'product.category_dairy' },
+  { value: 'Cash Crops', key: 'product.category_cash_crops' },
+  { value: 'Spices & Herbs', key: 'product.category_spices' },
+  { value: 'Seeds & Plantlings', key: 'product.category_seeds' }
 ];
 
 const units = [
@@ -30,6 +31,7 @@ const units = [
 ];
 
 const SellerProductFormPage = () => {
+  const { t, isRTL } = useLanguage();
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
@@ -41,7 +43,7 @@ const SellerProductFormPage = () => {
   const [price, setPrice] = useState('');
   const [unit, setUnit] = useState('kg');
   const [availableQuantity, setAvailableQuantity] = useState('');
-  const [status, setStatus] = useState('PENDING');
+  const [status, setStatus] = useState('ACTIVE');
 
   const [imageFiles, setImageFiles] = useState([]);
   const [imageUrlInput, setImageUrlInput] = useState('');
@@ -66,7 +68,7 @@ const SellerProductFormPage = () => {
             setPrice(p.price);
             setUnit(p.unit);
             setAvailableQuantity(p.available_quantity);
-            setStatus(p.status);
+            setStatus(p.status || 'ACTIVE');
             setExistingImages(p.images || []);
           }
         } catch (err) {
@@ -117,7 +119,7 @@ const SellerProductFormPage = () => {
       }
 
       if (res.data.success) {
-        setSuccessMessage(res.data.message || (isEdit ? 'Product updated!' : 'Crop listed! Awaiting admin approval.'));
+        setSuccessMessage(res.data.message || (isEdit ? 'Product updated successfully!' : 'Crop listed! Published immediately with ACTIVE status.'));
         setTimeout(() => {
           navigate('/seller/products');
         }, 1500);
@@ -140,23 +142,23 @@ const SellerProductFormPage = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className={`max-w-3xl mx-auto space-y-6 ${isRTL ? 'font-urdu' : ''}`}>
       {/* Header */}
       <div className="space-y-1">
         <Link
           to="/seller/products"
           className="text-xs font-bold text-slate-500 hover:text-agro-600 flex items-center gap-1 mb-2"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back to Crop Inventory</span>
+          <ArrowLeft className={`w-3.5 h-3.5 ${isRTL ? 'rotate-180' : ''}`} />
+          <span>{t('action.back', 'Back to Crop Inventory')}</span>
         </Link>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900">
-          {isEdit ? `Edit Crop: ${title}` : 'Add New Agricultural Produce'}
+          {isEdit ? `${t('product.edit', 'Edit Crop')}: ${title}` : t('product.add_new', 'Add New Agricultural Produce')}
         </h1>
         <p className="text-xs text-slate-500">
           {isEdit
-            ? 'Update crop specifications, current harvest price, or available inventory.'
-            : 'List a new agricultural crop for marketplace audit and approval.'}
+            ? (isRTL ? 'فصل کی تفصیلات، تازہ نرخ یا موجود اسٹاک کو اپ ڈیٹ کریں۔' : 'Update crop specifications, current harvest price, or available inventory.')
+            : (isRTL ? 'مارکیٹ میں خریداروں کے لیے نئی فصل یا پیداوار کی تفصیلات درج کریں۔' : 'List a new agricultural crop for immediate public sale to verified buyers.')}
         </p>
       </div>
 
@@ -178,38 +180,40 @@ const SellerProductFormPage = () => {
       <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1">Crop / Product Title *</label>
+            <label className="text-xs font-bold text-slate-700 block mb-1">{t('product.title', 'Crop / Product Title')} *</label>
             <input
               type="text"
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Golden Amber Durum Wheat (Grade A)"
+              placeholder={isRTL ? 'مثال: گندم امبر گریڈ اے، چاول باسمتی' : 'e.g. Golden Amber Durum Wheat (Grade A)'}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Agricultural Category *</label>
+              <label className="text-xs font-bold text-slate-700 block mb-1">{t('product.category', 'Agricultural Category')} *</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium text-slate-700"
               >
                 {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c.value} value={c.value}>
+                    {t(c.key, c.value)}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Crop Type / Botanical Strain</label>
+              <label className="text-xs font-bold text-slate-700 block mb-1">{t('product.crop_type', 'Crop Type / Botanical Strain')}</label>
               <input
                 type="text"
                 value={cropType}
                 onChange={(e) => setCropType(e.target.value)}
-                placeholder="e.g. Durum Wheat, Alphonso Mango"
+                placeholder={isRTL ? 'مثال: درم گندم، الفانسو آم' : 'e.g. Durum Wheat, Alphonso Mango'}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
               />
             </div>
@@ -217,21 +221,21 @@ const SellerProductFormPage = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Price ($) *</label>
+              <label className="text-xs font-bold text-slate-700 block mb-1">{t('product.price', 'Price (PKR)')} *</label>
               <input
                 type="number"
-                step="0.01"
-                min="0.01"
+                step="1"
+                min="1"
                 required
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                placeholder="42.00"
+                placeholder="e.g. 450"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Packaging / Pricing Unit *</label>
+              <label className="text-xs font-bold text-slate-700 block mb-1">{t('product.unit', 'Packaging / Pricing Unit')} *</label>
               <select
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
@@ -244,7 +248,7 @@ const SellerProductFormPage = () => {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Available Quantity (Units) *</label>
+              <label className="text-xs font-bold text-slate-700 block mb-1">{t('product.stock', 'Available Quantity (Units)')} *</label>
               <input
                 type="number"
                 step="1"
@@ -259,20 +263,20 @@ const SellerProductFormPage = () => {
           </div>
 
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1">Harvest Description & Specifications *</label>
+            <label className="text-xs font-bold text-slate-700 block mb-1">{t('product.description', 'Harvest Description & Specifications')} *</label>
             <textarea
               rows={4}
               required
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe moisture levels, purity percentage, harvest date, certifications, storage conditions..."
+              placeholder={isRTL ? 'نمی کا تناسب، کوالٹی گریڈ، کٹائی کی تاریخ، اسٹوریج کی صورتحال وغیرہ بیان کریں...' : 'Describe moisture levels, purity percentage, harvest date, certifications, storage conditions...'}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium leading-relaxed"
             />
           </div>
 
           {/* Media Images */}
           <div className="pt-2 border-t border-slate-100 space-y-3">
-            <label className="text-xs font-bold text-slate-700 block">Product Images</label>
+            <label className="text-xs font-bold text-slate-700 block">{t('product.images', 'Product Images')}</label>
 
             {/* Existing Images */}
             {existingImages.length > 0 && (
@@ -291,7 +295,7 @@ const SellerProductFormPage = () => {
             <div className="p-4 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 text-center space-y-2">
               <Upload className="w-8 h-8 text-slate-400 mx-auto" />
               <div className="text-xs text-slate-600">
-                <span className="font-semibold text-agro-700">Click to upload harvest photos</span> (JPG, PNG, WEBP)
+                <span className="font-semibold text-agro-700">{t('product.upload_photos', 'Click to upload harvest photos')}</span> (JPG, PNG, WEBP)
               </div>
               <input
                 type="file"
@@ -304,7 +308,7 @@ const SellerProductFormPage = () => {
 
             <div>
               <label className="text-[11px] font-semibold text-slate-500 block mb-1">
-                Or provide an image web URL:
+                {t('product.or_image_url', 'Or provide an image web URL:')}
               </label>
               <input
                 type="url"
@@ -319,15 +323,14 @@ const SellerProductFormPage = () => {
           {/* If edit, allow toggling INACTIVE */}
           {isEdit && (
             <div className="pt-2 border-t border-slate-100">
-              <label className="text-xs font-bold text-slate-700 block mb-1">Listing Availability Status</label>
+              <label className="text-xs font-bold text-slate-700 block mb-1">{t('status.active', 'Listing Availability Status')}</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full sm:w-60 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium text-slate-700"
               >
-                <option value="APPROVED">APPROVED (Active in Marketplace)</option>
-                <option value="PENDING">PENDING (In Moderation)</option>
-                <option value="INACTIVE">INACTIVE (Temporarily Paused)</option>
+                <option value="ACTIVE">{t('status.active', 'ACTIVE')} (Visible in Marketplace)</option>
+                <option value="INACTIVE">{isRTL ? 'غیر فعال (پوشیدہ)' : 'INACTIVE (Hidden / Paused)'}</option>
               </select>
             </div>
           )}
@@ -338,7 +341,7 @@ const SellerProductFormPage = () => {
             to="/seller/products"
             className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
           >
-            Cancel
+            {t('action.cancel', 'Cancel')}
           </Link>
           <button
             type="submit"
@@ -346,7 +349,7 @@ const SellerProductFormPage = () => {
             className="px-6 py-2.5 rounded-xl bg-agro-600 hover:bg-agro-700 disabled:bg-slate-300 text-white text-xs font-bold shadow-md shadow-agro-600/20 transition-colors flex items-center gap-1.5"
           >
             <Save className="w-4 h-4" />
-            <span>{loading ? 'Saving...' : isEdit ? 'Update Crop' : 'Create Crop Listing'}</span>
+            <span>{loading ? '...' : isEdit ? t('action.save', 'Update Crop') : t('product.add_new', 'Create Crop Listing')}</span>
           </button>
         </div>
       </form>

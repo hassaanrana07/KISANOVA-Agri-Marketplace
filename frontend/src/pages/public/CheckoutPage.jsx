@@ -2,19 +2,22 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   ShieldCheck,
-  CreditCard,
   Building,
   CheckCircle,
   Truck,
   ArrowRight,
   AlertCircle,
-  Upload,
-  Copy,
-  Check
+  MapPin,
+  Clock,
+  Banknote,
+  ShoppingBag,
+  Printer
 } from 'lucide-react';
 import api from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+import { formatPKR } from '../../utils/currency';
+import PrintableReceiptModal from '../../components/common/PrintableReceiptModal';
 
 const CheckoutPage = () => {
   const { groupedBySeller, grandTotal, totalItemsCount, clearCart } = useCart();
@@ -26,37 +29,32 @@ const CheckoutPage = () => {
   const [deliveryPhone, setDeliveryPhone] = useState(user?.phone || '');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('card'); // 'card' or 'bank_transfer'
+  const [fulfillmentMethod, setFulfillmentMethod] = useState('DELIVERY'); // 'DELIVERY' or 'PICKUP'
 
-  // Digital Card Simulation state
-  const [cardNumber, setCardNumber] = useState('4242 •••• •••• 4242');
-  const [cardExpiry, setCardExpiry] = useState('12/28');
-  const [cardCvc, setCardCvc] = useState('888');
-
-  // Bank transfer state
-  const [transferRef, setTransferRef] = useState('');
-  const [receiptFile, setReceiptFile] = useState(null);
-  const [copiedIban, setCopiedIban] = useState(false);
-
-  // Submitting state & Modal
+  // Submitting state & Success Modal
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [pendingOrderData, setPendingOrderData] = useState(null);
-  const [processingPayment, setProcessingPayment] = useState(false);
+  const [orderSuccessData, setOrderSuccessData] = useState(null);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
 
-  const handleCopyIban = (iban) => {
-    navigator.clipboard.writeText(iban);
-    setCopiedIban(true);
-    setTimeout(() => setCopiedIban(false), 2500);
-  };
+  // Calculate fulfillment capabilities and fees from cart sellers
+  const allSupportDelivery = groupedBySeller.every((g) => g.delivery_available !== false);
+  const allSupportPickup = groupedBySeller.every((g) => g.pickup_available !== false);
+
+  // Aggregate delivery fees across unique sellers
+  const totalDeliveryFee = groupedBySeller.reduce((sum, g) => {
+    return sum + (g.delivery_fee !== undefined ? parseFloat(g.delivery_fee) : 300);
+  }, 0);
+
+  const effectiveDeliveryFee = fulfillmentMethod === 'DELIVERY' ? totalDeliveryFee : 0;
+  const finalPayableTotal = grandTotal + effectiveDeliveryFee;
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     setErrorMessage('');
 
     if (!deliveryName || !deliveryPhone || !deliveryAddress) {
-      setErrorMessage('Please fill in your name, contact phone number, and delivery address.');
+      setErrorMessage('Please provide recipient name, contact phone number, and delivery destination.');
       return;
     }
 
@@ -65,450 +63,432 @@ const CheckoutPage = () => {
       return;
     }
 
+    if (fulfillmentMethod === 'DELIVERY' && !allSupportDelivery) {
+      setErrorMessage('One or more farms in your cart do not offer direct delivery. Please select Farm Self-Pickup.');
+      return;
+    }
+
+    if (fulfillmentMethod === 'PICKUP' && !allSupportPickup) {
+      setErrorMessage('One or more farms in your cart do not support farm pickup. Please select Delivery.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // 1. Create Parent Order & Seller Sub-orders atomically
+      // Place Cash on Delivery order
       const res = await api.post('/orders/checkout', {
         delivery_name: deliveryName,
         delivery_phone: deliveryPhone,
         delivery_address: deliveryAddress,
         delivery_notes: deliveryNotes,
-        payment_method: paymentMethod
+        fulfillment_method: fulfillmentMethod
       });
 
       if (res.data.success) {
-        setPendingOrderData(res.data.data);
+        setOrderSuccessData(res.data.data);
         clearCart();
-
-        if (paymentMethod === 'card') {
-          // Open Payment Gateway Modal to settle sandbox card payment
-          setPaymentModalOpen(true);
-        } else {
-          // Manual Bank Transfer flow
-          if (receiptFile || transferRef) {
-            // Upload proof if provided
-            const formData = new FormData();
-            formData.append('orderId', res.data.data.orderId);
-            formData.append('transactionReference', transferRef || res.data.data.paymentSession.transactionReference);
-            if (receiptFile) formData.append('receipt', receiptFile);
-            formData.append('notes', 'Submitted at checkout');
-
-            try {
-              await api.post('/payments/bank-transfer', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-              });
-            } catch (e) {
-              console.error('Bank transfer proof submission error:', e);
-            }
-          }
-          // Redirect to order details
-          navigate(`/orders/${res.data.data.orderId}`);
-        }
       } else {
-        setErrorMessage(res.data.message || 'Checkout failed.');
+        setErrorMessage(res.data.message || 'Failed to complete order.');
       }
     } catch (err) {
-      console.error('Checkout error:', err);
-      setErrorMessage(err.response?.data?.message || 'Checkout failed. Please try again.');
+      console.error('Order placement error:', err);
+      setErrorMessage(err.response?.data?.message || 'Error processing your checkout request.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCompleteCardPayment = async () => {
-    if (!pendingOrderData) return;
-    setProcessingPayment(true);
-    try {
-      const res = await api.post('/payments/process-sandbox', {
-        orderId: pendingOrderData.orderId,
-        transactionReference: pendingOrderData.paymentSession.transactionReference,
-        token: pendingOrderData.paymentSession.verificationToken,
-        cardLast4: '4242'
-      });
-
-      if (res.data.success) {
-        setPaymentModalOpen(false);
-        navigate(`/orders/${pendingOrderData.orderId}`);
-      } else {
-        alert(res.data.message || 'Payment verification failed.');
-      }
-    } catch (err) {
-      alert(err.response?.data?.message || 'Payment settlement failed.');
-    } finally {
-      setProcessingPayment(false);
-    }
-  };
-
-  if (groupedBySeller.length === 0 && !pendingOrderData) {
+  if (groupedBySeller.length === 0 && !orderSuccessData) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-4">
-        <AlertCircle className="w-12 h-12 text-slate-400 mx-auto" />
-        <h2 className="text-xl font-bold text-slate-900">Your Cart is Empty</h2>
-        <p className="text-xs text-slate-500">Add agricultural products to your cart before proceeding to checkout.</p>
-        <Link to="/products" className="inline-block px-5 py-2.5 bg-agro-600 text-white rounded-xl text-xs font-bold">
-          Browse Crops
+      <div className="max-w-2xl mx-auto py-16 px-4 text-center space-y-4">
+        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
+          <ShoppingBag className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-black text-slate-900">Your Harvest Basket is Empty</h2>
+        <p className="text-xs sm:text-sm text-slate-500">
+          Add fresh agricultural lots and produce directly from verified farmers before proceeding to checkout.
+        </p>
+        <Link
+          to="/products"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-agro-600 hover:bg-agro-700 text-white rounded-xl font-bold text-xs shadow-md transition-colors"
+        >
+          <span>Explore Farm Marketplace</span>
+          <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Page Title */}
       <div>
-        <h1 className="text-3xl font-black text-slate-900">Secure Checkout</h1>
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          Checkout & Dispatch Order
+        </h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          Review your multi-farm order and provide delivery dispatch information.
+          Review destination details and confirm Cash on Delivery with Pakistan's direct farm network.
         </p>
       </div>
 
       {errorMessage && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
 
-      <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left 2 Cols: Delivery Information & Payment Method */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* 1. Delivery Details */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
-            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2 pb-3 border-b border-slate-100">
-              <Truck className="w-5 h-5 text-agro-600" />
-              1. Delivery & Recipient Details
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Success Modal / Banner when order placed */}
+      {orderSuccessData && (
+        <div className="bg-emerald-50 border-2 border-emerald-500 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl animate-in fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-md">
+                <CheckCircle className="w-7 h-7" />
+              </div>
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Recipient Full Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={deliveryName}
-                  onChange={(e) => setDeliveryName(e.target.value)}
-                  placeholder="e.g. Zainab Ali"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
-                />
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+                  Order Successfully Placed!
+                </h2>
+                <p className="text-xs font-bold text-emerald-800">
+                  Order Reference: <span className="font-mono">{orderSuccessData.orderNumber}</span>
+                </p>
               </div>
+            </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Contact Phone Number *</label>
-                <input
-                  type="tel"
-                  required
-                  value={deliveryPhone}
-                  onChange={(e) => setDeliveryPhone(e.target.value)}
-                  placeholder="+1 555-0199"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Delivery Address & Destination *</label>
-                <textarea
-                  rows={2}
-                  required
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                  placeholder="Warehouse, facility, or street address..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Logistics & Handling Notes (Optional)</label>
-                <input
-                  type="text"
-                  value={deliveryNotes}
-                  onChange={(e) => setDeliveryNotes(e.target.value)}
-                  placeholder="e.g. Grain elevator gate 3, forklift unloading ready"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
-                />
-              </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setReceiptModalOpen(true)}
+                className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <Printer className="w-4 h-4 text-agro-600" />
+                <span>Print Official Receipt</span>
+              </button>
+              <Link
+                to={`/orders/${orderSuccessData.orderId}`}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-agro-600 text-white rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-1.5 shadow-sm"
+              >
+                <span>View Order Details</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
           </div>
 
-          {/* 2. Payment Method Selector */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
-            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2 pb-3 border-b border-slate-100">
-              <CreditCard className="w-5 h-5 text-agro-600" />
-              2. Payment Method
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Option 1: Online Digital / Sandbox Card */}
-              <label
-                onClick={() => setPaymentMethod('card')}
-                className={`p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
-                  paymentMethod === 'card'
-                    ? 'border-agro-600 bg-agro-50/50 shadow-sm'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <CreditCard className="w-5 h-5 text-agro-600" />
-                    <span className="text-sm font-bold text-slate-900">Online Card / Gateway</span>
-                  </div>
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    checked={paymentMethod === 'card'}
-                    onChange={() => setPaymentMethod('card')}
-                    className="text-agro-600 focus:ring-agro-500"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-500 mt-3 leading-relaxed">
-                  Instant settlement via secure payment gateway session. No raw card storage.
-                </p>
-                <div className="mt-3 flex items-center gap-1.5 text-[10px] text-agro-700 font-bold uppercase">
-                  <span>Verified Sandbox Mode</span>
-                </div>
-              </label>
-
-              {/* Option 2: Manual Bank Transfer / IBAN */}
-              <label
-                onClick={() => setPaymentMethod('bank_transfer')}
-                className={`p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
-                  paymentMethod === 'bank_transfer'
-                    ? 'border-agro-600 bg-agro-50/50 shadow-sm'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <Building className="w-5 h-5 text-earth-600" />
-                    <span className="text-sm font-bold text-slate-900">Bank Wire / IBAN</span>
-                  </div>
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    checked={paymentMethod === 'bank_transfer'}
-                    onChange={() => setPaymentMethod('bank_transfer')}
-                    className="text-agro-600 focus:ring-agro-500"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-500 mt-3 leading-relaxed">
-                  Direct agricultural escrow wire transfer. Requires Administrator verification before dispatch.
-                </p>
-                <div className="mt-3 flex items-center gap-1.5 text-[10px] text-earth-700 font-bold uppercase">
-                  <span>Pending Admin Audit Flow</span>
-                </div>
-              </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white/80 p-4 rounded-2xl border border-emerald-200 text-xs">
+            <div>
+              <span className="text-slate-400 block font-bold text-[10px] uppercase">Payment Method</span>
+              <strong className="text-slate-900 text-sm flex items-center gap-1 mt-0.5">
+                <Banknote className="w-4 h-4 text-emerald-600" />
+                Cash on Delivery (COD)
+              </strong>
             </div>
+            <div>
+              <span className="text-slate-400 block font-bold text-[10px] uppercase">Payment Status</span>
+              <span className="inline-block mt-0.5 px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-full font-bold text-[11px]">
+                UNPAID (Pay on Delivery)
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-400 block font-bold text-[10px] uppercase">Total Payable Amount</span>
+              <strong className="text-slate-900 text-base font-black mt-0.5 block">
+                {formatPKR(orderSuccessData.totalAmount)}
+              </strong>
+            </div>
+          </div>
+        </div>
+      )}
 
-            {/* Bank Transfer Details Section */}
-            {paymentMethod === 'bank_transfer' && (
-              <div className="p-5 rounded-2xl bg-earth-50 border border-earth-200 space-y-4 animate-fadeIn">
-                <h4 className="text-xs font-bold text-earth-900 uppercase tracking-wider">
-                  Kisanova Escrow Banking Coordinates
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span className="text-slate-500 text-[11px]">Beneficiary Name:</span>
-                    <p className="font-bold text-slate-900">Kisanova Agricultural Escrow LLC</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 text-[11px]">Bank:</span>
-                    <p className="font-bold text-slate-900">Meezan Agricultural Commercial Bank</p>
-                  </div>
-                  <div className="sm:col-span-2 flex items-center justify-between bg-white p-2.5 rounded-xl border border-earth-200">
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-mono">IBAN</span>
-                      <p className="font-mono font-bold text-slate-900 text-xs">PK36MEZN0001234567890123</p>
+      {/* Main Checkout Form */}
+      {!orderSuccessData && (
+        <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Column: Fulfillment & Recipient Details */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* 1. Fulfillment Method Selection */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-agro-600" />
+                  Select Fulfillment Mode
+                </h3>
+                <span className="text-[11px] text-slate-400 font-medium">Pakistani Agricultural Transport</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Delivery Option */}
+                <label
+                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
+                    fulfillmentMethod === 'DELIVERY'
+                      ? 'border-agro-600 bg-agro-50/50 shadow-sm'
+                      : 'border-slate-200 hover:border-slate-300 bg-white'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="fulfillment"
+                    value="DELIVERY"
+                    checked={fulfillmentMethod === 'DELIVERY'}
+                    onChange={() => setFulfillmentMethod('DELIVERY')}
+                    className="mt-1 text-agro-600 focus:ring-agro-500"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">Farm Direct Delivery</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyIban('PK36MEZN0001234567890123')}
-                      className="px-2.5 py-1 bg-earth-100 hover:bg-earth-200 text-earth-900 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
-                    >
-                      {copiedIban ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedIban ? 'Copied' : 'Copy'}</span>
-                    </button>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Direct courier / agricultural transport to your doorstep.
+                    </p>
+                    <div className="mt-2 text-xs font-bold text-agro-700">
+                      Fee: {formatPKR(totalDeliveryFee)}
+                    </div>
                   </div>
-                </div>
+                </label>
 
-                <div className="pt-2 border-t border-earth-200 space-y-3">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Bank Wire Reference / Transaction ID
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. IBAN-WIRE-98231"
-                      value={transferRef}
-                      onChange={(e) => setTransferRef(e.target.value)}
-                      className="w-full bg-white border border-earth-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-mono"
-                    />
+                {/* Farm Pickup Option */}
+                <label
+                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
+                    fulfillmentMethod === 'PICKUP'
+                      ? 'border-agro-600 bg-agro-50/50 shadow-sm'
+                      : 'border-slate-200 hover:border-slate-300 bg-white'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="fulfillment"
+                    value="PICKUP"
+                    checked={fulfillmentMethod === 'PICKUP'}
+                    onChange={() => setFulfillmentMethod('PICKUP')}
+                    className="mt-1 text-agro-600 focus:ring-agro-500"
+                  />
+                  <div className="min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">Farm Gate Self-Pickup</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Collect directly from farmer's loading dock / harvest gate.
+                    </p>
+                    <div className="mt-2 text-xs font-bold text-emerald-700">
+                      Fee: Free (PKR 0)
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Upload Payment Deposit Proof (Receipt/Screenshot)
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setReceiptFile(e.target.files[0])}
-                      className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-earth-200 file:text-earth-900 hover:file:bg-earth-300"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Col: Multi-Seller Breakdown & Order Submission */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm sticky top-28 space-y-6">
-            <h3 className="font-black text-lg text-slate-900 pb-3 border-b border-slate-100">
-              Multi-Seller Breakdown
-            </h3>
-
-            {/* Farm by Farm Breakdown */}
-            <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
-              {groupedBySeller.map((group) => (
-                <div key={group.seller_id} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-black text-slate-900">
-                    <span className="flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5 text-agro-600" />
-                      {group.farm_name}
-                    </span>
-                    <span>${parseFloat(group.seller_subtotal).toFixed(2)}</span>
-                  </div>
-
-                  <div className="space-y-1 pl-5 text-[11px] text-slate-600">
-                    {group.items.map((itm) => (
-                      <div key={itm.item_id || itm.id} className="flex justify-between">
-                        <span className="truncate max-w-[140px]">{itm.product_title} × {itm.quantity}</span>
-                        <span className="font-mono text-slate-900 font-bold">${parseFloat(itm.subtotal).toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-4 border-t border-slate-200 space-y-2 text-xs">
-              <div className="flex justify-between text-slate-600">
-                <span>Total Items:</span>
-                <strong className="text-slate-900">{totalItemsCount} units</strong>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Farms Involved:</span>
-                <strong className="text-slate-900">{groupedBySeller.length} Individual Farms</strong>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Shipping:</span>
-                <span className="text-emerald-700 font-bold">Standard Agro Logistics</span>
+                </label>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-200 flex items-baseline justify-between">
-              <span className="text-sm font-bold text-slate-900">Grand Total:</span>
-              <span className="text-2xl font-black text-slate-900">${grandTotal.toFixed(2)}</span>
-            </div>
+            {/* 2. Destination & Contact Information */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
+                <MapPin className="w-4 h-4 text-agro-600" />
+                Recipient & Dispatch Destination
+              </h3>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 px-6 rounded-2xl bg-agro-600 hover:bg-agro-700 disabled:bg-slate-300 text-white font-bold text-sm shadow-lg shadow-agro-600/25 transition-all flex items-center justify-center gap-2"
-            >
-              <span>{loading ? 'Generating Order...' : paymentMethod === 'card' ? 'Proceed to Online Payment' : 'Confirm Order & Wire Transfer'}</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </form>
-
-      {/* Online Card Payment Gateway Modal (Realistic Simulator) */}
-      {paymentModalOpen && pendingOrderData && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6 animate-scaleIn">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-agro-600 text-white flex items-center justify-center font-bold">
-                  <CreditCard className="w-5 h-5" />
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="text-base font-black text-slate-900">Kisanova Payment Gateway</h3>
-                  <span className="text-[11px] text-agro-700 font-bold uppercase tracking-wide">
-                    Encrypted Sandbox Checkout
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Recipient Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={deliveryName}
+                    onChange={(e) => setDeliveryName(e.target.value)}
+                    placeholder="e.g. Muhammad Ahmad"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-agro-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Contact Mobile Phone *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={deliveryPhone}
+                    onChange={(e) => setDeliveryPhone(e.target.value)}
+                    placeholder="e.g. 03001234567"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-agro-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Delivery Address / Drop-off Location *
+                  </label>
+                  <textarea
+                    required
+                    rows="3"
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    placeholder="House/Plot number, Street, Chak / Union Council, Tehsil, District, Province..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-agro-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Logistics / Handling Notes (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={deliveryNotes}
+                    onChange={(e) => setDeliveryNotes(e.target.value)}
+                    placeholder="e.g. Call before arrival, unloading staff available, gate code..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-agro-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Payment Method: Strictly Cash on Delivery (COD) */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Banknote className="w-4 h-4 text-emerald-600" />
+                  Payment Method
+                </h3>
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  Cash on Delivery Only
+                </span>
+              </div>
+
+              {/* Single Pure Cash on Delivery Card */}
+              <div className="p-4 rounded-2xl bg-slate-50 border-2 border-emerald-500/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm">
+                      <Banknote className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900">Cash on Delivery (COD)</h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Inspect quality upon arrival and hand physical cash to the courier or farm representative.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="w-4 h-4 rounded-full border-2 border-emerald-600 bg-emerald-600 flex items-center justify-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                  </span>
+                </div>
+
+                <div className="pt-3 border-t border-slate-200 text-[11px] text-slate-600 space-y-1">
+                  <div className="flex items-center gap-2 text-emerald-800 font-semibold">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                    <span>No advance payment or online card required.</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Payment status starts as UNPAID until cash collection is verified by the seller.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Order Summary & Place Order Action */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6 sticky top-24">
+              <h3 className="font-black text-base text-slate-900">Order Harvest Summary</h3>
+
+              {/* Grouped by Seller */}
+              <div className="space-y-4 max-h-64 overflow-y-auto divide-y divide-slate-100 pr-1">
+                {groupedBySeller.map((group) => (
+                  <div key={group.seller_id} className="pt-3 first:pt-0 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                      <span className="flex items-center gap-1.5 text-agro-800">
+                        <Building className="w-3.5 h-3.5 text-agro-600" />
+                        {group.farm_name}
+                      </span>
+                      <span className="text-slate-500 font-medium">
+                        {group.items.length} item{group.items.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 pl-2">
+                      {group.items.map((item) => (
+                        <div key={item.product_id} className="flex items-center justify-between text-[11px] text-slate-600">
+                          <span className="truncate max-w-[200px]">
+                            {item.quantity} {item.unit} × {item.title}
+                          </span>
+                          <span className="font-semibold text-slate-900">
+                            {formatPKR(item.subtotal)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Cost Calculations */}
+              <div className="pt-4 border-t border-slate-100 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Harvest Subtotal ({totalItemsCount} items)</span>
+                  <span className="font-bold text-slate-900">{formatPKR(grandTotal)}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-slate-600">
+                  <span>Fulfillment ({fulfillmentMethod === 'DELIVERY' ? 'Direct Delivery' : 'Farm Pickup'})</span>
+                  <span className="font-bold text-slate-900">
+                    {fulfillmentMethod === 'DELIVERY' ? formatPKR(effectiveDeliveryFee) : 'Free'}
+                  </span>
+                </div>
+
+                <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">Total Due on Delivery</span>
+                    <span className="text-[10px] text-slate-400">All taxes and duties included</span>
+                  </div>
+                  <span className="text-2xl font-black text-agro-700">
+                    {formatPKR(finalPayableTotal)}
                   </span>
                 </div>
               </div>
-              <span className="text-lg font-black text-slate-900">${grandTotal.toFixed(2)}</span>
-            </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2">
-              <div className="flex justify-between text-slate-500">
-                <span>Order Reference:</span>
-                <span className="font-mono font-bold text-slate-900">{pendingOrderData.orderNumber}</span>
-              </div>
-              <div className="flex justify-between text-slate-500">
-                <span>Transaction Ref:</span>
-                <span className="font-mono text-slate-700 truncate max-w-[180px]">
-                  {pendingOrderData.paymentSession?.transactionReference}
-                </span>
-              </div>
-              <div className="flex justify-between text-slate-500">
-                <span>Security Signature:</span>
-                <span className="font-mono text-emerald-700 font-bold">HMAC-SHA256 Validated</span>
-              </div>
-            </div>
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-agro-600 hover:bg-agro-700 disabled:bg-slate-300 text-white rounded-2xl font-black text-sm shadow-xl shadow-agro-600/20 transition-all flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                ) : (
+                  <>
+                    <span>Confirm Cash on Delivery Order</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
 
-            {/* Test Card Simulation Form */}
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Simulated Card Number</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    disabled
-                    value={cardNumber}
-                    className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800"
-                  />
-                  <span className="absolute right-3 top-2 text-[10px] font-bold text-agro-700 uppercase">Test Card</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Expiry</label>
-                  <input
-                    type="text"
-                    disabled
-                    value={cardExpiry}
-                    className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">CVC</label>
-                  <input
-                    type="text"
-                    disabled
-                    value={cardCvc}
-                    className="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800"
-                  />
-                </div>
+              <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 font-medium text-center">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Protected by Kisanova Guaranteed Produce Quality</span>
               </div>
             </div>
-
-            <p className="text-[11px] text-slate-500 text-center">
-              Clicking "Complete Payment" sends verification to the backend payment engine to transition the order to <strong>PAID</strong>.
-            </p>
-
-            <button
-              onClick={handleCompleteCardPayment}
-              disabled={processingPayment}
-              className="w-full py-3.5 bg-agro-600 hover:bg-agro-700 disabled:bg-slate-300 text-white font-bold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
-            >
-              <span>{processingPayment ? 'Verifying with Provider...' : `Pay $${grandTotal.toFixed(2)} Now`}</span>
-              <CheckCircle className="w-4 h-4" />
-            </button>
           </div>
-        </div>
+        </form>
+      )}
+
+      {/* Printable Receipt Modal */}
+      {orderSuccessData && (
+        <PrintableReceiptModal
+          isOpen={receiptModalOpen}
+          onClose={() => setReceiptModalOpen(false)}
+          receiptData={{
+            receiptNumber: `RCP-${orderSuccessData.orderNumber}`,
+            orderNumber: orderSuccessData.orderNumber,
+            orderDate: new Date().toISOString(),
+            buyerName: deliveryName,
+            buyerPhone: deliveryPhone,
+            deliveryAddress: deliveryAddress,
+            paymentMethod: 'COD',
+            paymentStatus: 'UNPAID',
+            transactionReference: 'COD-CASH-SETTLEMENT',
+            totalAmount: orderSuccessData.totalAmount,
+            items: []
+          }}
+        />
       )}
     </div>
   );

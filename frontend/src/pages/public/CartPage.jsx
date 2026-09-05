@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+import { formatPKR } from '../../utils/currency';
 
 const CartPage = () => {
   const { groupedBySeller, grandTotal, totalItemsCount, updateQuantity, removeFromCart, clearCart } = useCart();
@@ -95,7 +96,7 @@ const CartPage = () => {
                 <div className="text-right self-end sm:self-auto">
                   <span className="text-xs text-slate-500">Farm Subtotal: </span>
                   <strong className="text-sm font-black text-slate-900">
-                    ${parseFloat(sellerGroup.seller_subtotal).toFixed(2)}
+                    {formatPKR(sellerGroup.seller_subtotal)}
                   </strong>
                 </div>
               </div>
@@ -118,7 +119,7 @@ const CartPage = () => {
                           {item.product_title}
                         </Link>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          ${parseFloat(item.current_price || item.price).toFixed(2)} / {item.product_unit}
+                          {formatPKR(item.current_price || item.price)} / {item.product_unit}
                         </p>
                       </div>
                     </div>
@@ -143,7 +144,7 @@ const CartPage = () => {
 
                       <div className="text-right min-w-[70px]">
                         <span className="font-black text-sm text-slate-900">
-                          ${parseFloat(item.subtotal).toFixed(2)}
+                          {formatPKR(item.subtotal)}
                         </span>
                       </div>
 
@@ -186,7 +187,7 @@ const CartPage = () => {
 
             <div className="pt-4 border-t border-slate-200 flex items-baseline justify-between">
               <span className="text-sm font-bold text-slate-900">Grand Total:</span>
-              <span className="text-2xl font-black text-slate-900">${grandTotal.toFixed(2)}</span>
+              <span className="text-2xl font-black text-slate-900">{formatPKR(grandTotal)}</span>
             </div>
 
             <button

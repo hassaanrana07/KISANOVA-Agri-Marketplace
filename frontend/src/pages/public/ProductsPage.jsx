@@ -3,6 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { Search, Filter, ShoppingBag, ShieldCheck, ArrowUpDown, X, Sprout } from 'lucide-react';
 import api from '../../services/api';
 import { useCart } from '../../context/CartContext';
+import { formatPKR } from '../../utils/currency';
 
 const ProductsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -178,7 +179,7 @@ const ProductsPage = () => {
 
             {/* Price Range */}
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1.5">Price Range ($)</label>
+              <label className="text-xs font-semibold text-slate-700 block mb-1.5">Price Range (PKR)</label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -304,7 +305,7 @@ const ProductsPage = () => {
 
                     <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                       <div>
-                        <span className="text-lg font-black text-slate-900">${parseFloat(product.price).toFixed(2)}</span>
+                        <span className="text-lg font-black text-slate-900">{formatPKR(product.price)}</span>
                         <span className="text-xs text-slate-500 ml-1">/ {product.unit}</span>
                         <p className="text-[10px] text-slate-400">Stock: {product.available_quantity} {product.unit}</p>
                       </div>

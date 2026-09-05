@@ -11,12 +11,34 @@ const sellerRoutes = require('./routes/sellerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 
-// Security and utility middleware
+// Allowed origins for multi-application frontend architecture
+const rawClientUrls = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map(u => u.trim()) : [];
+const configuredOrigins = new Set([
+  process.env.PUBLIC_APP_URL || 'http://localhost:5000',
+  process.env.SELLER_APP_URL || 'http://localhost:5140',
+  process.env.ADMIN_APP_URL || 'http://localhost:5174',
+  'http://localhost:5000',
+  'http://localhost:5140',
+  'http://localhost:5174',
+  'http://localhost:5173',
+  ...rawClientUrls
+]);
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow server-to-server or non-browser requests
+    if (!origin) return callback(null, true);
+    if (configuredOrigins.has(origin)) return callback(null, true);
+    // In development mode, allow any localhost port
+    if (process.env.NODE_ENV !== 'production' && /^http:\/\/localhost(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true
 }));
 
@@ -49,6 +71,7 @@ app.use('/api/seller', sellerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler for undefined API routes
 app.use('/api/*', (req, res) => {

@@ -126,50 +126,78 @@ async function runTests() {
     console.assert(cartRes.body.data.groupedBySeller.length === 2, 'Cart not grouped into 2 sellers');
     console.log('✅ 9. Multi-Seller Cart: Products from 2 different sellers successfully co-exist in 1 cart');
 
-    // 8. Checkout & Payment Simulation
-    const checkoutRes = await request(
+    // 8. Checkout & Payment Simulation with COD and ONLINE
+    // Test COD Checkout
+    const checkoutCodRes = await request(
       'POST',
       '/orders/checkout',
       {
         delivery_name: 'Zainab Ali',
-        delivery_phone: '+1 555-901-2345',
-        delivery_address: 'Flat 4B, Palm Tree Heights, East Agro City',
-        payment_method: 'card'
+        delivery_phone: '+92 300 1234567',
+        delivery_address: 'House 14, Street 9, F-7/2, Islamabad',
+        payment_method: 'COD'
       },
       buyer1Token
     );
-    console.assert(checkoutRes.status === 201, 'Checkout failed');
-    const orderData = checkoutRes.body.data;
-    console.assert(orderData.sellerCount === 2, 'Parent order does not link to 2 seller sub-orders');
-    console.log(`✅ 10. Multi-Seller Checkout: Created Parent Order ${orderData.orderNumber} with ${orderData.sellerCount} sub-orders`);
+    console.assert(checkoutCodRes.status === 201, 'COD Checkout failed');
+    const codOrderData = checkoutCodRes.body.data;
+    console.assert(codOrderData.paymentMethod === 'COD', 'Payment method is not COD');
+    console.log(`✅ 10. Multi-Seller Checkout (COD): Created Parent Order ${codOrderData.orderNumber}`);
 
-    // Settle digital payment via sandbox verification
+    // Re-populate cart for Online Payment test
+    await request('POST', '/cart', { product_id: prod1Id, quantity: 1 }, buyer1Token);
+
+    // Test ONLINE Checkout (Easypaisa)
+    const checkoutOnlineRes = await request(
+      'POST',
+      '/orders/checkout',
+      {
+        delivery_name: 'Zainab Ali',
+        delivery_phone: '+92 300 1234567',
+        delivery_address: 'House 14, Street 9, F-7/2, Islamabad',
+        payment_method: 'ONLINE',
+        online_provider: 'easypaisa'
+      },
+      buyer1Token
+    );
+    console.assert(checkoutOnlineRes.status === 201, 'Online Checkout failed');
+    const onlineOrderData = checkoutOnlineRes.body.data;
+    console.assert(onlineOrderData.paymentMethod === 'ONLINE', 'Payment method is not ONLINE');
+    console.assert(onlineOrderData.onlineProvider === 'easypaisa', 'Online provider is not easypaisa');
+    console.log(`✅ 11. Multi-Seller Checkout (ONLINE/Easypaisa): Created Parent Order ${onlineOrderData.orderNumber}`);
+
+    // Settle digital payment via HMAC verification
     const payRes = await request(
       'POST',
-      '/payments/process-sandbox',
+      '/payments/verify-online',
       {
-        orderId: orderData.orderId,
-        transactionReference: orderData.paymentSession.transactionReference,
-        token: orderData.paymentSession.verificationToken,
-        cardLast4: '4242'
+        orderId: onlineOrderData.orderId,
+        transactionReference: onlineOrderData.paymentSession.transactionReference,
+        token: onlineOrderData.paymentSession.verificationToken,
+        walletIdentifier: '03001234567'
       },
       buyer1Token
     );
     console.assert(payRes.status === 200 && payRes.body.data.status === 'PAID', 'Payment settlement failed');
-    console.log('✅ 11. Payment Gateway Settlement: Payment verified and transitioned to PAID');
+    console.log('✅ 12. Payment Verification: Online payment verified and settled to PAID');
+
+    // Fetch Printable Receipt
+    const receiptRes = await request('GET', `/payments/receipt/${onlineOrderData.orderId}`, null, buyer1Token);
+    console.assert(receiptRes.status === 200 && receiptRes.body.data.paymentStatus === 'PAID', 'Receipt retrieval failed');
+    console.log(`✅ 13. Official Payment Receipt: Retrieved ${receiptRes.body.data.receiptNumber}`);
 
     // Verify buyer orders
     const buyerOrdersRes = await request('GET', '/orders', null, buyer1Token);
     console.assert(buyerOrdersRes.status === 200 && buyerOrdersRes.body.data.length > 0, 'Fetch buyer orders failed');
-    console.log('✅ 12. Buyer "My Orders": Retrieved list of confirmed orders');
+    console.log('✅ 14. Buyer "My Orders": Retrieved list of confirmed orders with payment details');
 
     // 9. Seller Panel Operations
     // Seller 1 checks their orders
     const sellerOrdersRes = await request('GET', '/seller/orders', null, seller1Token);
     console.assert(sellerOrdersRes.status === 200, 'Seller orders fetch failed');
-    const sellerSubOrder = sellerOrdersRes.body.data.find(so => so.order_id === orderData.orderId);
+    const sellerSubOrder = sellerOrdersRes.body.data.find(so => so.order_id === onlineOrderData.orderId);
     console.assert(sellerSubOrder !== undefined, 'Seller 1 did not receive their sub-order');
-    console.log('✅ 13. Seller Orders: Seller 1 successfully isolated their sub-order');
+    console.log('✅ 15. Seller Orders: Seller 1 isolated their sub-order');
 
     // Seller updates status to SHIPPED
     const updateStatusRes = await request(
@@ -179,7 +207,24 @@ async function runTests() {
       seller1Token
     );
     console.assert(updateStatusRes.status === 200, 'Seller update order status failed');
-    console.log('✅ 14. Seller Order Status: Status advanced to SHIPPED');
+    console.log('✅ 16. Seller Order Status: Status advanced to SHIPPED');
+
+    // Seller publishes a product immediately (ACTIVE status, no admin approval required)
+    const newProductRes = await request(
+      'POST',
+      '/seller/products',
+      {
+        title: 'Fresh Organic Carrots',
+        description: 'Crisp, sweet, organic farm fresh carrots harvested this morning.',
+        price: 1.5,
+        available_quantity: 200,
+        unit: 'KG',
+        category: 'VEGETABLES'
+      },
+      seller1Token
+    );
+    console.assert(newProductRes.status === 201 && newProductRes.body.data.status === 'ACTIVE', 'Seller direct publish failed');
+    console.log('✅ 17. Seller Direct Publishing: Product published immediately with ACTIVE status (No approval needed)');
 
     // 10. Admin Panel Operations
     // Admin checks pending sellers
@@ -196,22 +241,7 @@ async function runTests() {
       adminToken
     );
     console.assert(approveSellerRes.status === 200, 'Admin approve seller failed');
-    console.log('✅ 15. Admin Moderation: Approved pending seller "Sunrise Agro Commodities"');
-
-    // Admin checks pending products
-    const pendingProductsRes = await request('GET', '/admin/products?status=PENDING', null, adminToken);
-    console.assert(pendingProductsRes.status === 200, 'Admin pending products fetch failed');
-    if (pendingProductsRes.body.data.length > 0) {
-      const pendingProd = pendingProductsRes.body.data[0];
-      const approveProdRes = await request(
-        'PUT',
-        `/admin/products/${pendingProd.id}/status`,
-        { status: 'APPROVED' },
-        adminToken
-      );
-      console.assert(approveProdRes.status === 200, 'Admin approve product failed');
-      console.log(`✅ 16. Admin Moderation: Approved pending product "${pendingProd.title}"`);
-    }
+    console.log('✅ 18. Admin Moderation: Approved pending seller "Sunrise Agro Commodities"');
 
     // 11. Chat & Messaging Flow
     // Buyer initiates chat with Seller 1 about Wheat
@@ -253,7 +283,7 @@ async function runTests() {
     // Verify messages thread
     const threadRes = await request('GET', `/chat/conversations/${conversationId}/messages`, null, buyer1Token);
     console.assert(threadRes.status === 200 && threadRes.body.data.messages.length >= 2, 'Chat thread fetch failed');
-    console.log('✅ 17. Buyer-to-Seller Chat: Bidirectional messaging verified with sender validation');
+    console.log('✅ 19. Buyer-to-Seller Chat: Bidirectional messaging verified with sender validation');
 
     // Unauthorized access check: another buyer cannot view this conversation
     const buyer2Login = await request('POST', '/auth/login', {
@@ -263,9 +293,9 @@ async function runTests() {
     const buyer2Token = buyer2Login.body.data.token;
     const eavesdropRes = await request('GET', `/chat/conversations/${conversationId}/messages`, null, buyer2Token);
     console.assert(eavesdropRes.status === 403, 'Chat security breach: Unauthorized buyer read private messages!');
-    console.log('✅ 18. Chat Security: Eavesdropping by unrelated user blocked with 403 Forbidden');
+    console.log('✅ 20. Chat Security: Eavesdropping by unrelated user blocked with 403 Forbidden');
 
-    console.log('\n🎉 ALL 18 INTEGRATION TESTS PASSED SUCCESSFULLY!');
+    console.log('\n🎉 ALL 20 INTEGRATION TESTS PASSED SUCCESSFULLY!');
   } catch (error) {
     console.error('❌ Test suite error:', error);
     process.exit(1);

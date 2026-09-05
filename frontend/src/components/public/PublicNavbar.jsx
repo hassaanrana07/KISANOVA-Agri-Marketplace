@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingBag, MessageSquare, Package, User, LogOut, Search, Sprout, Menu, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import NotificationBell from '../common/NotificationBell';
 
 const PublicNavbar = () => {
   const { user, isBuyer, logout } = useAuth();
@@ -78,6 +79,9 @@ const PublicNavbar = () => {
             <Link to="/products" className="hover:text-agro-600 transition-colors">
               Browse Crops & Produce
             </Link>
+            <Link to="/seller/register" className="text-agro-700 hover:text-agro-800 font-semibold transition-colors flex items-center gap-1">
+              <span>Sell on Kisanova</span>
+            </Link>
           </nav>
 
           {/* Right Action Icons & Auth */}
@@ -116,6 +120,8 @@ const PublicNavbar = () => {
                   <MessageSquare className="w-5 h-5" />
                 </Link>
 
+                <NotificationBell theme="light" />
+
                 {/* User Dropdown */}
                 <div className="relative">
                   <button
@@ -153,7 +159,7 @@ const PublicNavbar = () => {
                       <button
                         onClick={() => {
                           setUserDropdownOpen(false);
-                          logout();
+                          logout('BUYER');
                           navigate('/');
                         }}
                         className="w-full text-left flex items-center gap-2 px-4 py-2 text-xs text-red-600 hover:bg-red-50 border-t border-slate-100 mt-1"
@@ -165,35 +171,24 @@ const PublicNavbar = () => {
                   )}
                 </div>
               </div>
-            ) : user ? (
-              // Logged in as Admin or Seller: show logout and portal indicator
-              <div className="flex items-center gap-2">
-                <span className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-semibold">
-                  {user.role}
-                </span>
-                <button
-                  onClick={() => {
-                    logout();
-                    navigate('/');
-                  }}
-                  className="p-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 text-xs font-medium flex items-center gap-1"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Logout</span>
-                </button>
-              </div>
             ) : (
-              // Anonymous guest: Sign in / Register buttons
+              // Anonymous guest / Non-buyer view: Sign in & Register buttons
               <div className="flex items-center gap-2">
+                <Link
+                  to="/seller/register"
+                  className="hidden sm:inline-flex px-3 py-2 text-xs font-bold text-agro-700 hover:text-agro-800 bg-agro-50 hover:bg-agro-100 rounded-lg transition-colors border border-agro-200"
+                >
+                  Sell on Kisanova
+                </Link>
                 <button
                   onClick={handleLoginClick}
-                  className="px-4 py-2 text-sm font-semibold text-slate-700 hover:text-agro-700 hover:bg-agro-50 rounded-lg transition-colors"
+                  className="px-3 sm:px-4 py-2 text-sm font-semibold text-slate-700 hover:text-agro-700 hover:bg-agro-50 rounded-lg transition-colors"
                 >
                   Sign In
                 </button>
                 <Link
                   to="/register"
-                  className="px-4 py-2 text-sm font-semibold text-white bg-agro-600 hover:bg-agro-700 rounded-lg shadow-sm transition-colors"
+                  className="px-3 sm:px-4 py-2 text-sm font-semibold text-white bg-agro-600 hover:bg-agro-700 rounded-lg shadow-sm transition-colors"
                 >
                   Register
                 </Link>

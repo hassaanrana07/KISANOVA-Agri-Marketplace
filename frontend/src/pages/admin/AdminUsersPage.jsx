@@ -47,47 +47,52 @@ const AdminUsersPage = () => {
     }
   };
 
+  const getRoleBadge = (role) => {
+    switch (role) {
+      case 'ADMIN':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'SELLER':
+        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      default:
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-white">Marketplace User Directory</h1>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1">
-          Supervise buyer accounts and registered agricultural farmer profiles.
-        </p>
-      </div>
-
-      {notice && (
-        <div className="p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold">
-          {notice}
+    <div className="space-y-6 max-w-full overflow-x-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Marketplace User Directory</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Supervise buyer accounts, registered farmers, and administrative role assignments.
+          </p>
         </div>
-      )}
 
-      {/* Filter and Search Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            fetchUsers();
-          }}
-          className="relative w-full sm:w-80"
-        >
-          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search name or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
-        </form>
+        <div className="flex flex-wrap items-center gap-3">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              fetchUsers();
+            }}
+            className="flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm"
+          >
+            <Search className="w-3.5 h-3.5 text-slate-400 mr-2" />
+            <input
+              type="text"
+              placeholder="Search by name, email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="text-xs text-slate-800 focus:outline-none w-32 sm:w-44 placeholder:text-slate-400"
+            />
+          </form>
 
-        <div className="flex items-center gap-3 self-end sm:self-auto">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-medium">Role:</span>
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
+            <Filter className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-xs text-slate-500 font-medium">Role:</span>
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 font-medium text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
             >
               <option value="">All Roles</option>
               <option value="BUYER">Buyer</option>
@@ -95,102 +100,109 @@ const AdminUsersPage = () => {
               <option value="ADMIN">Admin</option>
             </select>
           </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-medium">Account:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-slate-950 border border-slate-800 text-xs rounded-xl px-3 py-2 font-medium text-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="">All Accounts</option>
-              <option value="ACTIVE">Active</option>
-              <option value="SUSPENDED">Suspended</option>
-            </select>
-          </div>
         </div>
       </div>
 
-      {/* Users Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-xl overflow-hidden">
-        {loading ? (
-          <div className="py-20 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-400"></div>
+      {notice && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+          <CheckCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{notice}</span>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="py-20 flex items-center justify-center bg-white rounded-3xl border border-slate-200 shadow-sm">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
+        </div>
+      ) : users.length === 0 ? (
+        <div className="p-12 text-center text-xs text-slate-400 bg-white rounded-3xl border border-slate-200 shadow-sm">
+          No user records found matching filter.
+        </div>
+      ) : (
+        <>
+          {/* Mobile Cards (Zero Horizontal Scroll) */}
+          <div className="block md:hidden space-y-3">
+            {users.map((u) => (
+              <div key={u.id} className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2.5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900 text-xs">{u.name}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${getRoleBadge(u.role)}`}>
+                    {u.role}
+                  </span>
+                </div>
+                <p className="text-slate-500 text-xs">{u.email}</p>
+                {u.phone && <p className="text-slate-400 text-[11px]">{u.phone}</p>}
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    u.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {u.status}
+                  </span>
+
+                  {u.role !== 'ADMIN' && (
+                    <button
+                      onClick={() => handleToggleStatus(u.id, u.status)}
+                      className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700"
+                    >
+                      {u.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        ) : users.length === 0 ? (
-          <div className="p-12 text-center text-xs text-slate-400">
-            No users found matching query.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-950/60 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                <tr>
-                  <th className="py-3.5 px-6">Name</th>
-                  <th className="py-3.5 px-6">Email</th>
-                  <th className="py-3.5 px-6">Role</th>
-                  <th className="py-3.5 px-6">Associated Farm</th>
-                  <th className="py-3.5 px-6">Joined Date</th>
-                  <th className="py-3.5 px-6">Status</th>
-                  <th className="py-3.5 px-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-800/50 transition-colors">
-                    <td className="py-4 px-6 font-bold text-white">
-                      {u.name}
-                    </td>
-                    <td className="py-4 px-6 text-slate-400">
-                      {u.email}
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        u.role === 'ADMIN'
-                          ? 'bg-purple-500/20 text-purple-300'
-                          : u.role === 'SELLER'
-                          ? 'bg-blue-500/20 text-blue-300'
-                          : 'bg-emerald-500/20 text-emerald-300'
-                      }`}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-slate-300 font-medium">
-                      {u.farm_name || '—'}
-                    </td>
-                    <td className="py-4 px-6 text-slate-500">
-                      {new Date(u.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        u.status === 'ACTIVE'
-                          ? 'bg-emerald-500/20 text-emerald-300'
-                          : 'bg-red-500/20 text-red-300'
-                      }`}>
-                        {u.status}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      {u.role !== 'ADMIN' && (
-                        <button
-                          onClick={() => handleToggleStatus(u.id, u.status)}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                            u.status === 'ACTIVE'
-                              ? 'bg-slate-800 hover:bg-red-900/40 text-red-300 border border-slate-700'
-                              : 'bg-slate-800 hover:bg-emerald-900/40 text-emerald-300 border border-slate-700'
-                          }`}
-                        >
-                          {u.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
-                        </button>
-                      )}
-                    </td>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="w-full max-w-full overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                  <tr>
+                    <th className="py-3.5 px-6">User Name</th>
+                    <th className="py-3.5 px-6">Email Address</th>
+                    <th className="py-3.5 px-6">Contact Phone</th>
+                    <th className="py-3.5 px-6">Platform Role</th>
+                    <th className="py-3.5 px-6">Account Status</th>
+                    <th className="py-3.5 px-6 text-right">Moderation Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {users.map((u) => (
+                    <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-4 px-6 font-bold text-slate-900 whitespace-nowrap">{u.name}</td>
+                      <td className="py-4 px-6 text-slate-600 whitespace-nowrap">{u.email}</td>
+                      <td className="py-4 px-6 text-slate-500 whitespace-nowrap">{u.phone || '—'}</td>
+                      <td className="py-4 px-6 whitespace-nowrap">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getRoleBadge(u.role)}`}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          u.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {u.status}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-right whitespace-nowrap">
+                        {u.role !== 'ADMIN' && (
+                          <button
+                            onClick={() => handleToggleStatus(u.id, u.status)}
+                            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors"
+                          >
+                            {u.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 };

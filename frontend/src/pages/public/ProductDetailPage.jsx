@@ -15,6 +15,8 @@ import {
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import FarmLocationMap from '../../components/common/FarmLocationMap';
+import { formatPKR } from '../../utils/currency';
 
 const ProductDetailPage = () => {
   const { id } = useParams();
@@ -190,12 +192,12 @@ const ProductDetailPage = () => {
 
             {/* Price Display */}
             <div className="flex items-baseline gap-2 pt-2">
-              <span className="text-3xl font-black text-slate-900">${parseFloat(product.price).toFixed(2)}</span>
+              <span className="text-3xl font-black text-slate-900">{formatPKR(product.price)}</span>
               <span className="text-slate-500 text-sm font-medium">per {product.unit}</span>
             </div>
 
-            {/* Stock Availability */}
-            <div className="text-xs">
+            {/* Stock & Fulfillment Availability */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
               {parseFloat(product.available_quantity) > 0 ? (
                 <span className="text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1 rounded-md inline-flex items-center gap-1">
                   <CheckCircle className="w-3.5 h-3.5" />
@@ -204,6 +206,20 @@ const ProductDetailPage = () => {
               ) : (
                 <span className="text-red-700 font-bold bg-red-50 px-2.5 py-1 rounded-md">
                   Currently Out of Stock
+                </span>
+              )}
+
+              {product.delivery_available !== 0 && (
+                <span className="text-slate-700 font-semibold bg-slate-100 px-2.5 py-1 rounded-md inline-flex items-center gap-1 border border-slate-200">
+                  <Truck className="w-3.5 h-3.5 text-agro-600" />
+                  Delivery {product.seller_delivery_fee !== null ? formatPKR(product.seller_delivery_fee) : 'Available'}
+                </span>
+              )}
+
+              {product.pickup_available !== 0 && (
+                <span className="text-emerald-800 font-semibold bg-emerald-50 px-2.5 py-1 rounded-md inline-flex items-center gap-1 border border-emerald-200">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  Farm Pickup (Free)
                 </span>
               )}
             </div>
@@ -283,13 +299,33 @@ const ProductDetailPage = () => {
 
             <div className="pt-2 border-t border-slate-200 text-xs text-slate-500 space-y-1">
               <div className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                <span className="truncate">{product.seller_address}</span>
+                <MapPin className="w-3.5 h-3.5 text-agro-600 flex-shrink-0" />
+                <span className="truncate">
+                  {[product.seller_locality, product.seller_tehsil, product.seller_district, product.seller_province, product.seller_address].filter(Boolean).join(', ')}
+                </span>
               </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                <span>{product.seller_phone}</span>
-              </div>
+            </div>
+
+            {/* Farm GPS Harvest Map */}
+            <div className="pt-3 border-t border-slate-200 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Farm Harvest Boundary Map
+              </span>
+              <FarmLocationMap
+                latitude={product.seller_latitude}
+                longitude={product.seller_longitude}
+                farmName={product.farm_name}
+                city={product.seller_city || product.seller_district}
+                address={product.seller_address}
+                farmPolygon={product.farm_polygon}
+                declaredAcreage={product.declared_acreage}
+                calculatedAcreage={product.calculated_acreage}
+                province={product.seller_province}
+                district={product.seller_district}
+                tehsil={product.seller_tehsil}
+                locality={product.seller_locality}
+                height="h-56"
+              />
             </div>
           </div>
         </div>
@@ -318,7 +354,7 @@ const ProductDetailPage = () => {
                   {rel.title}
                 </h4>
                 <p className="text-sm font-black text-slate-900 mt-2">
-                  ${parseFloat(rel.price).toFixed(2)} <span className="text-xs text-slate-500 font-normal">/ {rel.unit}</span>
+                  {formatPKR(rel.price)} <span className="text-xs text-slate-500 font-normal">/ {rel.unit}</span>
                 </p>
               </Link>
             ))}

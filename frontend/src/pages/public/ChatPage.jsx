@@ -15,10 +15,14 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { formatPKR } from '../../utils/currency';
+import { getSocket, joinConversationRoom, leaveConversationRoom } from '../../services/socket';
 
 const ChatPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const { t, isRTL } = useLanguage();
 
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(searchParams.get('conversationId') || null);
@@ -56,9 +60,11 @@ const ChatPage = () => {
     fetchConversations();
   }, []);
 
-  // 2. Fetch Messages when active conversation changes
+  // 2. Fetch Messages and Join Socket Room when active conversation changes
   useEffect(() => {
     if (!activeConversationId) return;
+
+    joinConversationRoom(activeConversationId);
 
     const fetchMessages = async () => {
       try {
@@ -74,6 +80,24 @@ const ChatPage = () => {
 
     fetchMessages();
     setSearchParams({ conversationId: activeConversationId });
+
+    // Real-time message receiver without reload
+    const socket = getSocket();
+    const handleIncomingMessage = (newMsg) => {
+      if (parseInt(newMsg.conversation_id, 10) === parseInt(activeConversationId, 10)) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+      }
+    };
+
+    socket.on('new_message', handleIncomingMessage);
+
+    return () => {
+      socket.off('new_message', handleIncomingMessage);
+      leaveConversationRoom(activeConversationId);
+    };
   }, [activeConversationId]);
 
   // Scroll to bottom on new messages
@@ -140,34 +164,34 @@ const ChatPage = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-full overflow-x-hidden ${isRTL ? 'font-urdu' : ''}`}>
       <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900">Direct Farmer Chat</h1>
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900">{t('chat.title', 'Direct Farmer Chat')}</h1>
         <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-          Communicate directly with crop cultivators. Share logistics notes and view live field dispatches.
+          {isRTL ? 'خریداروں اور کسانوں کے درمیان براہِ راست رابطہ۔ تصدیق، ترسیل اور معیار پر بات چیت کریں۔' : 'Communicate directly with crop cultivators. Share logistics notes and view live field dispatches.'}
         </p>
       </div>
 
       {conversations.length === 0 ? (
         <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-4">
           <MessageSquare className="w-12 h-12 text-slate-300 mx-auto" />
-          <h3 className="font-bold text-slate-900 text-base">No Conversations Active</h3>
+          <h3 className="font-bold text-slate-900 text-base">{t('chat.no_conversations', 'No Conversations Active')}</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            You can initiate a direct inquiry from any product details page by clicking "Chat with Seller".
+            {isRTL ? 'آپ کسی بھی فصل کے صفحے سے خریدار یا کسان کے ساتھ بات چیت شروع کر سکتے ہیں۔' : 'You can initiate a direct inquiry from any product details page by clicking "Chat with Seller".'}
           </p>
           <Link
             to="/products"
             className="inline-block px-5 py-2.5 bg-agro-600 hover:bg-agro-700 text-white rounded-xl text-xs font-bold transition-colors"
           >
-            Explore Agricultural Marketplace
+            {isRTL ? 'زرعی منڈی دیکھیں' : 'Explore Agricultural Marketplace'}
           </Link>
         </div>
       ) : (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-3 h-[640px]">
           {/* Left: Conversations List */}
-          <div className="md:col-span-1 border-r border-slate-200 flex flex-col bg-slate-50/70">
+          <div className={`md:col-span-1 ${isRTL ? 'border-l' : 'border-r'} border-slate-200 flex flex-col bg-slate-50/70`}>
             <div className="p-4 border-b border-slate-200">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Conversations</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{t('chat.title', 'Conversations')}</span>
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
@@ -177,8 +201,12 @@ const ChatPage = () => {
                   <button
                     key={conv.conversation_id}
                     onClick={() => setActiveConversationId(conv.conversation_id)}
-                    className={`w-full text-left p-4 transition-colors flex items-start gap-3 ${
-                      isSelected ? 'bg-white border-l-4 border-agro-600 shadow-sm' : 'hover:bg-slate-100/80'
+                    className={`w-full ${isRTL ? 'text-right' : 'text-left'} p-4 transition-colors flex items-start gap-3 ${
+                      isSelected
+                        ? isRTL
+                          ? 'bg-white border-r-4 border-agro-600 shadow-sm'
+                          : 'bg-white border-l-4 border-agro-600 shadow-sm'
+                        : 'hover:bg-slate-100/80'
                     }`}
                   >
                     <img
@@ -199,9 +227,9 @@ const ChatPage = () => {
                         {conv.product_title}
                       </p>
                       <p className="text-[11px] text-slate-500 truncate mt-1">
-                        {conv.last_message_type === 'IMAGE' && '📷 Photo Attachment'}
-                        {conv.last_message_type === 'VIDEO' && '🎥 Video Attachment'}
-                        {conv.last_message_type === 'TEXT' && (conv.last_message || 'Started inquiry')}
+                        {conv.last_message_type === 'IMAGE' && (isRTL ? '📷 تصویر' : '📷 Photo Attachment')}
+                        {conv.last_message_type === 'VIDEO' && (isRTL ? '🎥 ویڈیو' : '🎥 Video Attachment')}
+                        {conv.last_message_type === 'TEXT' && (conv.last_message || (isRTL ? 'پیغام شروع کیا' : 'Started inquiry'))}
                       </p>
                     </div>
                   </button>
@@ -226,7 +254,7 @@ const ChatPage = () => {
                       {user.role === 'SELLER' ? activeConvMeta.buyer_name : activeConvMeta.farm_name}
                     </h3>
                     <p className="text-[11px] text-slate-500">
-                      Product: <strong className="text-agro-700">{activeConvMeta.product_title}</strong> (${parseFloat(activeConvMeta.product_price).toFixed(2)} / {activeConvMeta.product_unit})
+                      Product: <strong className="text-agro-700">{activeConvMeta.product_title}</strong> ({formatPKR(activeConvMeta.product_price)} / {activeConvMeta.product_unit})
                     </p>
                   </div>
                 </div>
@@ -235,7 +263,7 @@ const ChatPage = () => {
                   to={`/products/${activeConvMeta.product_id}`}
                   className="text-xs font-semibold text-agro-600 hover:text-agro-700 underline"
                 >
-                  View Listing
+                  {isRTL ? 'فصل کی تفصیلات دیکھیں' : 'View Listing'}
                 </Link>
               </div>
             )}
@@ -248,7 +276,7 @@ const ChatPage = () => {
                   <div key={msg.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
                     <div className="flex items-center gap-1.5 mb-1 px-1">
                       <span className="text-[10px] font-bold text-slate-400">
-                        {isMine ? 'You' : msg.sender_name}
+                        {isMine ? (isRTL ? 'آپ' : 'You') : msg.sender_name}
                       </span>
                       <span className="text-[10px] text-slate-300">•</span>
                       <span className="text-[10px] text-slate-400">
@@ -330,7 +358,7 @@ const ChatPage = () => {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
-                  title="Attach Photo or Video"
+                  title={isRTL ? 'تصویر یا ویڈیو منسلک کریں' : 'Attach Photo or Video'}
                 >
                   <Paperclip className="w-4 h-4" />
                 </button>
@@ -338,7 +366,7 @@ const ChatPage = () => {
                 {/* Text Input */}
                 <input
                   type="text"
-                  placeholder="Type your message, inquiry, or delivery instructions..."
+                  placeholder={t('chat.placeholder', 'Type your message, inquiry, or delivery instructions...')}
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
@@ -349,8 +377,9 @@ const ChatPage = () => {
                   type="submit"
                   disabled={sending || (!inputText.trim() && !selectedFile)}
                   className="p-2.5 rounded-xl bg-agro-600 hover:bg-agro-700 disabled:bg-slate-200 text-white shadow-md transition-all flex items-center justify-center"
+                  title={t('chat.send', 'Send')}
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
                 </button>
               </form>
             </div>

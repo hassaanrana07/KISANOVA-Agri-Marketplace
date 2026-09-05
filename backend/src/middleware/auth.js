@@ -45,7 +45,9 @@ const requireAuth = async (req, res, next) => {
     // If user is a seller, attach seller profile data
     if (user.role === 'SELLER') {
       const [sellers] = await pool.query(
-        'SELECT id, farm_name, phone, address, bio, approval_status FROM sellers WHERE user_id = ?',
+        `SELECT id, user_id, farm_name, phone, address, city, region, latitude, longitude,
+                business_info, profile_image, bio, approval_status, rejection_reason
+         FROM sellers WHERE user_id = ?`,
         [user.id]
       );
       if (sellers.length > 0) {
@@ -92,7 +94,66 @@ const requireRole = (...roles) => {
   };
 };
 
+/**
+ * Require Administrator Privileges
+ */
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== 'ADMIN') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Administrator privileges required.'
+    });
+  }
+  next();
+};
+
+/**
+ * Require Approved Seller Middleware
+ * Rejects unverified (PENDING), REJECTED, or SUSPENDED sellers
+ */
+const requireApprovedSeller = (req, res, next) => {
+  if (!req.user || req.user.role !== 'SELLER') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Seller account required.'
+    });
+  }
+
+  if (!req.seller || req.seller.approval_status !== 'APPROVED') {
+    const status = req.seller?.approval_status || 'PENDING';
+    const message = status === 'PENDING'
+      ? 'Your seller account is still under verification. Please wait until an administrator approves your account.'
+      : status === 'REJECTED'
+      ? 'Your seller account was not approved. Please contact support or update your verification information if applicable.'
+      : 'Your seller account has been suspended. Please contact administrator.';
+
+    return res.status(403).json({
+      success: false,
+      message,
+      status
+    });
+  }
+
+  next();
+};
+
+/**
+ * Require Buyer Privileges
+ */
+const requireBuyer = (req, res, next) => {
+  if (!req.user || req.user.role !== 'BUYER') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Buyer account required.'
+    });
+  }
+  next();
+};
+
 module.exports = {
   requireAuth,
-  requireRole
+  requireRole,
+  requireAdmin,
+  requireApprovedSeller,
+  requireBuyer
 };

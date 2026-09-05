@@ -6,32 +6,83 @@ const paymentService = require('../services/paymentService');
  */
 const getAdminMetrics = async (req, res) => {
   try {
-    // Total GMV (Gross Merchandise Value of paid orders)
-    const [gmvResult] = await pool.query(
-      "SELECT COALESCE(SUM(total_amount), 0) as total_gmv, COUNT(id) as total_orders FROM orders WHERE payment_status = 'PAID'"
+    // 1. Core KPIs
+    // Total Sellers & Pending Sellers
+    const [sellerCounts] = await pool.query(
+      `SELECT 
+         COUNT(id) as total_sellers,
+         COUNT(CASE WHEN approval_status = 'PENDING' THEN 1 END) as pending_sellers,
+         COUNT(CASE WHEN approval_status = 'APPROVED' THEN 1 END) as approved_sellers
+       FROM sellers`
     );
 
-    // Sellers count by approval status
-    const [sellerStats] = await pool.query(
-      'SELECT approval_status, COUNT(id) as count FROM sellers GROUP BY approval_status'
+    // Total Buyers
+    const [buyerCounts] = await pool.query(
+      `SELECT COUNT(id) as total_buyers FROM users WHERE role = 'BUYER'`
     );
 
-    // Products count by status
-    const [productStats] = await pool.query(
-      'SELECT status, COUNT(id) as count FROM products GROUP BY status'
+    // Products Stats
+    const [productCounts] = await pool.query(
+      `SELECT 
+         COUNT(id) as total_products,
+         COUNT(CASE WHEN status = 'ACTIVE' THEN 1 END) as active_products,
+         COUNT(CASE WHEN status = 'PENDING' THEN 1 END) as pending_products
+       FROM products`
     );
 
-    // Users count by role
-    const [userStats] = await pool.query(
-      'SELECT role, status, COUNT(id) as count FROM users GROUP BY role, status'
+    // Order & Revenue KPIs
+    const [orderKpis] = await pool.query(
+      `SELECT 
+         COUNT(id) as total_orders,
+         COUNT(CASE WHEN order_status = 'PENDING' THEN 1 END) as pending_orders,
+         COUNT(CASE WHEN order_status = 'DELIVERED' THEN 1 END) as delivered_orders,
+         COALESCE(SUM(total_amount), 0) as total_revenue,
+         COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN total_amount ELSE amount_paid END), 0) as paid_revenue,
+         COALESCE(SUM(CASE WHEN payment_status = 'UNPAID' THEN total_amount WHEN payment_status = 'PARTIALLY_PAID' THEN (total_amount - amount_paid) ELSE 0 END), 0) as pending_revenue
+       FROM orders`
     );
 
-    // Pending bank transfer payments count
-    const [pendingPayments] = await pool.query(
-      "SELECT COUNT(id) as pending_transfers FROM payments WHERE payment_provider = 'bank_transfer' AND status = 'PENDING'"
+    // 2. Orders Timeline (Past 14 Days)
+    const [timelineRows] = await pool.query(
+      `SELECT 
+         DATE_FORMAT(created_at, '%Y-%m-%d') as date_label,
+         COUNT(id) as orders_count,
+         COALESCE(SUM(total_amount), 0) as revenue
+       FROM orders
+       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+       GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+       ORDER BY date_label ASC`
     );
 
-    // Recent orders across marketplace
+    // 3. Order Status Distribution
+    const [orderStatuses] = await pool.query(
+      `SELECT order_status as status, COUNT(id) as count 
+       FROM orders 
+       GROUP BY order_status 
+       ORDER BY count DESC`
+    );
+
+    // 4. Payment Status Distribution
+    const [paymentStatuses] = await pool.query(
+      `SELECT 
+         payment_status as status, 
+         COUNT(id) as count,
+         COALESCE(SUM(total_amount), 0) as volume
+       FROM orders 
+       GROUP BY payment_status 
+       ORDER BY count DESC`
+    );
+
+    // 5. Product Category Distribution
+    const [categories] = await pool.query(
+      `SELECT category, COUNT(id) as count 
+       FROM products 
+       WHERE status = 'ACTIVE'
+       GROUP BY category 
+       ORDER BY count DESC`
+    );
+
+    // 6. Recent Orders across Marketplace
     const [recentOrders] = await pool.query(
       `SELECT 
          o.id, o.order_number, o.total_amount, o.delivery_name, o.payment_status,
@@ -48,12 +99,25 @@ const getAdminMetrics = async (req, res) => {
     return res.json({
       success: true,
       data: {
-        totalGmv: parseFloat(gmvResult[0].total_gmv),
-        totalOrders: gmvResult[0].total_orders,
-        sellerStats,
-        productStats,
-        userStats,
-        pendingTransfersCount: pendingPayments[0].pending_transfers,
+        kpis: {
+          totalSellers: sellerCounts[0].total_sellers || 0,
+          pendingSellers: sellerCounts[0].pending_sellers || 0,
+          approvedSellers: sellerCounts[0].approved_sellers || 0,
+          totalBuyers: buyerCounts[0].total_buyers || 0,
+          totalProducts: productCounts[0].total_products || 0,
+          activeProducts: productCounts[0].active_products || 0,
+          pendingProducts: productCounts[0].pending_products || 0,
+          totalOrders: orderKpis[0].total_orders || 0,
+          pendingOrders: orderKpis[0].pending_orders || 0,
+          deliveredOrders: orderKpis[0].delivered_orders || 0,
+          totalRevenue: parseFloat(orderKpis[0].total_revenue || 0),
+          paidRevenue: parseFloat(orderKpis[0].paid_revenue || 0),
+          pendingRevenue: parseFloat(orderKpis[0].pending_revenue || 0)
+        },
+        ordersTimeline: timelineRows,
+        orderStatusDistribution: orderStatuses,
+        paymentStatusDistribution: paymentStatuses,
+        categoryDistribution: categories,
         recentOrders
       }
     });
@@ -71,10 +135,12 @@ const getSellers = async (req, res) => {
     const { status, search } = req.query;
     let query = `
       SELECT 
-        s.id, s.user_id, s.farm_name, s.phone, s.address, s.bio, s.approval_status, s.created_at,
-        u.name as contact_name, u.email as contact_email, u.status as user_status,
+        s.id, s.user_id, s.farm_name, s.phone, s.address, s.city, s.region,
+        s.latitude, s.longitude, s.business_info, s.profile_image, s.bio,
+        s.approval_status, s.rejection_reason, s.created_at,
+        u.name as contact_name, u.email as contact_email, u.phone as contact_phone, u.status as user_status,
         COUNT(DISTINCT p.id) as total_products,
-        COUNT(DISTINCT CASE WHEN p.status = 'APPROVED' THEN p.id END) as approved_products,
+        COUNT(DISTINCT CASE WHEN p.status = 'ACTIVE' THEN p.id END) as active_products,
         COUNT(DISTINCT so.id) as total_orders
       FROM sellers s
       JOIN users u ON s.user_id = u.id
@@ -90,16 +156,16 @@ const getSellers = async (req, res) => {
     }
 
     if (search) {
-      whereClauses.push('(s.farm_name LIKE ? OR u.name LIKE ? OR u.email LIKE ?)');
+      whereClauses.push('(s.farm_name LIKE ? OR u.name LIKE ? OR u.email LIKE ? OR s.city LIKE ?)');
       const pattern = `%${search}%`;
-      params.push(pattern, pattern, pattern);
+      params.push(pattern, pattern, pattern, pattern);
     }
 
     if (whereClauses.length > 0) {
       query += ` WHERE ${whereClauses.join(' AND ')}`;
     }
 
-    query += ' GROUP BY s.id ORDER BY s.created_at DESC';
+    query += ' GROUP BY s.id ORDER BY CASE WHEN s.approval_status = "PENDING" THEN 1 ELSE 2 END, s.created_at DESC';
 
     const [sellers] = await pool.query(query, params);
 
@@ -116,7 +182,7 @@ const getSellers = async (req, res) => {
 const updateSellerApproval = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, rejection_reason } = req.body;
 
     const allowed = ['APPROVED', 'REJECTED', 'SUSPENDED', 'PENDING'];
     if (!allowed.includes(status)) {
@@ -127,18 +193,26 @@ const updateSellerApproval = async (req, res) => {
     }
 
     const [result] = await pool.query(
-      'UPDATE sellers SET approval_status = ?, updated_at = NOW() WHERE id = ?',
-      [status, id]
+      'UPDATE sellers SET approval_status = ?, rejection_reason = ?, updated_at = NOW() WHERE id = ?',
+      [status, rejection_reason || null, id]
     );
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: 'Seller not found.' });
     }
 
-    // If seller is suspended/rejected, also deactivate their active products
+    // If seller is suspended or rejected, deactivate their products
     if (status === 'SUSPENDED' || status === 'REJECTED') {
       await pool.query(
-        "UPDATE products SET status = 'INACTIVE' WHERE seller_id = ? AND status = 'APPROVED'",
+        "UPDATE products SET status = 'INACTIVE' WHERE seller_id = ? AND status = 'ACTIVE'",
+        [id]
+      );
+    }
+
+    // If approved, reactivate products if seller was previously suspended
+    if (status === 'APPROVED') {
+      await pool.query(
+        "UPDATE products SET status = 'ACTIVE' WHERE seller_id = ? AND status = 'INACTIVE'",
         [id]
       );
     }
@@ -174,8 +248,11 @@ const getAdminProducts = async (req, res) => {
     const whereClauses = [];
 
     if (status && status !== 'ALL') {
+      let normalizedStatus = status;
+      if (status === 'APPROVED') normalizedStatus = 'ACTIVE';
+      if (status === 'REJECTED') normalizedStatus = 'INACTIVE';
       whereClauses.push('p.status = ?');
-      params.push(status);
+      params.push(normalizedStatus);
     }
 
     if (category && category !== 'ALL') {
@@ -193,7 +270,7 @@ const getAdminProducts = async (req, res) => {
       query += ` WHERE ${whereClauses.join(' AND ')}`;
     }
 
-    query += ' ORDER BY CASE WHEN p.status = "PENDING" THEN 1 ELSE 2 END, p.created_at DESC';
+    query += ' ORDER BY p.created_at DESC';
 
     const [products] = await pool.query(query, params);
 
@@ -212,8 +289,12 @@ const updateProductStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const allowed = ['APPROVED', 'REJECTED', 'INACTIVE', 'PENDING'];
-    if (!allowed.includes(status)) {
+    let normalizedStatus = status;
+    if (status === 'APPROVED') normalizedStatus = 'ACTIVE';
+    if (status === 'REJECTED') normalizedStatus = 'INACTIVE';
+
+    const allowed = ['ACTIVE', 'INACTIVE'];
+    if (!allowed.includes(normalizedStatus)) {
       return res.status(400).json({
         success: false,
         message: `Invalid status. Allowed: [${allowed.join(', ')}]`
@@ -222,7 +303,7 @@ const updateProductStatus = async (req, res) => {
 
     const [result] = await pool.query(
       'UPDATE products SET status = ?, updated_at = NOW() WHERE id = ?',
-      [status, id]
+      [normalizedStatus, id]
     );
 
     if (result.affectedRows === 0) {

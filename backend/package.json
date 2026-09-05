@@ -8,7 +8,13 @@
     "dev": "node --watch src/server.js",
     "seed": "node ../database/seed.js"
   },
-  "keywords": ["agricultural", "marketplace", "kisanova", "express", "mysql"],
+  "keywords": [
+    "agricultural",
+    "marketplace",
+    "kisanova",
+    "express",
+    "mysql"
+  ],
   "author": "Kisanova Team",
   "license": "ISC",
   "dependencies": {
@@ -20,6 +26,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
-    "mysql2": "^3.9.7"
+    "mysql2": "^3.9.7",
+    "socket.io": "^4.8.3"
   }
 }

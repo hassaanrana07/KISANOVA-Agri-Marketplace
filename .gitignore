@@ -33,3 +33,8 @@ Thumbs.db
 # Media uploads (keep directory, ignore contents)
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Local MySQL runtime data & scripts
+mysql_data/
+mysql_init.txt
+
