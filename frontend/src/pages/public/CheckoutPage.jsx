@@ -53,8 +53,13 @@ const CheckoutPage = () => {
     e.preventDefault();
     setErrorMessage('');
 
-    if (!deliveryName || !deliveryPhone || !deliveryAddress) {
-      setErrorMessage('Please provide recipient name, contact phone number, and delivery destination.');
+    if (!deliveryName || !deliveryPhone) {
+      setErrorMessage('Please provide recipient name and contact mobile phone number.');
+      return;
+    }
+
+    if (fulfillmentMethod === 'DELIVERY' && (!deliveryAddress || !deliveryAddress.trim())) {
+      setErrorMessage('Please provide a delivery drop-off address for courier delivery.');
       return;
     }
 
@@ -313,14 +318,18 @@ const CheckoutPage = () => {
 
                 <div className="sm:col-span-2">
                   <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Delivery Address / Drop-off Location *
+                    Delivery Address / Drop-off Location {fulfillmentMethod === 'DELIVERY' ? '*' : '(Optional for Farm Gate Pickup)'}
                   </label>
                   <textarea
-                    required
+                    required={fulfillmentMethod === 'DELIVERY'}
                     rows="3"
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
-                    placeholder="House/Plot number, Street, Chak / Union Council, Tehsil, District, Province..."
+                    placeholder={
+                      fulfillmentMethod === 'DELIVERY'
+                        ? 'House/Plot number, Street, Chak / Union Council, Tehsil, District, Province...'
+                        : 'Not required for Farm Gate Pickup. You can specify vehicle number or pickup details here...'
+                    }
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-agro-500"
                   />
                 </div>
@@ -340,7 +349,7 @@ const CheckoutPage = () => {
               </div>
             </div>
 
-            {/* 3. Payment Method: Strictly Cash on Delivery (COD) */}
+            {/* 3. Payment Method: Pure Cash on Delivery / Farm Pickup */}
             <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -348,11 +357,11 @@ const CheckoutPage = () => {
                   Payment Method
                 </h3>
                 <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  Cash on Delivery Only
+                  {fulfillmentMethod === 'PICKUP' ? 'Farm Gate Cash Only' : 'Cash on Delivery Only'}
                 </span>
               </div>
 
-              {/* Single Pure Cash on Delivery Card */}
+              {/* Dynamic COD vs Farm Pickup Card */}
               <div className="p-4 rounded-2xl bg-slate-50 border-2 border-emerald-500/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -360,9 +369,15 @@ const CheckoutPage = () => {
                       <Banknote className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-black text-slate-900">Cash on Delivery (COD)</h4>
+                      <h4 className="text-xs font-black text-slate-900">
+                        {fulfillmentMethod === 'PICKUP'
+                          ? 'Cash at Farm Gate Pickup'
+                          : 'Cash on Delivery (COD)'}
+                      </h4>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Inspect quality upon arrival and hand physical cash to the courier or farm representative.
+                        {fulfillmentMethod === 'PICKUP'
+                          ? 'Inspect your harvest on-site at the farm gate and hand cash directly to the farmer.'
+                          : 'Inspect produce quality upon arrival and hand physical cash to the courier representative.'}
                       </p>
                     </div>
                   </div>
@@ -374,11 +389,11 @@ const CheckoutPage = () => {
                 <div className="pt-3 border-t border-slate-200 text-[11px] text-slate-600 space-y-1">
                   <div className="flex items-center gap-2 text-emerald-800 font-semibold">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                    <span>No advance payment or online card required.</span>
+                    <span>No online cards, digital wallets, or upfront payment required.</span>
                   </div>
                   <div className="flex items-center gap-2 text-slate-500">
                     <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    <span>Payment status starts as UNPAID until cash collection is verified by the seller.</span>
+                    <span>Payment status starts as UNPAID until cash collection is confirmed.</span>
                   </div>
                 </div>
               </div>
@@ -403,6 +418,17 @@ const CheckoutPage = () => {
                         {group.items.length} item{group.items.length > 1 ? 's' : ''}
                       </span>
                     </div>
+
+                    {group.estimated_delivery_min_days && fulfillmentMethod === 'DELIVERY' && (
+                      <div className="text-[10px] text-slate-500">
+                        Est. Delivery: {group.estimated_delivery_min_days}–{group.estimated_delivery_max_days || 4} days
+                      </div>
+                    )}
+                    {group.pickup_instructions && fulfillmentMethod === 'PICKUP' && (
+                      <div className="text-[10px] text-emerald-700 font-medium">
+                        Pickup: {group.pickup_instructions}
+                      </div>
+                    )}
 
                     <div className="space-y-1.5 pl-2">
                       {group.items.map((item) => (
@@ -436,8 +462,10 @@ const CheckoutPage = () => {
 
                 <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-bold text-slate-900 block">Total Due on Delivery</span>
-                    <span className="text-[10px] text-slate-400">All taxes and duties included</span>
+                    <span className="text-xs font-bold text-slate-900 block">
+                      {fulfillmentMethod === 'PICKUP' ? 'Total Due at Farm Gate' : 'Total Due on Delivery'}
+                    </span>
+                    <span className="text-[10px] text-slate-400">All taxes and produce fees included</span>
                   </div>
                   <span className="text-2xl font-black text-agro-700">
                     {formatPKR(finalPayableTotal)}
@@ -455,7 +483,11 @@ const CheckoutPage = () => {
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
                 ) : (
                   <>
-                    <span>Confirm Cash on Delivery Order</span>
+                    <span>
+                      {fulfillmentMethod === 'PICKUP'
+                        ? 'Confirm Farm Gate Pickup Order'
+                        : 'Confirm Cash on Delivery Order'}
+                    </span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

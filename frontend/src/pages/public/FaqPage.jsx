@@ -13,7 +13,7 @@ const FAQS = [
       },
       {
         q: 'What payment methods are supported for crop orders?',
-        a: 'We support Cash on Delivery (COD) for domestic courier dispatches, as well as instant Online Payments via Easypaisa, JazzCash, and SadaPay mobile wallets. All digital payments are protected with instant cryptographic verification.'
+        a: 'Kisanova strictly supports two direct payment methods: Cash on Delivery (COD) when crops are delivered directly to your doorstep, and Farm Gate Self-Pickup (where you pay the farmer upon in-person harvest inspection and collection). This ensures genuine crop verification and direct payment to cultivators without online gateway transaction fees.'
       },
       {
         q: 'Can I chat directly with the farmer before purchasing?',

@@ -49,10 +49,10 @@ const TermsConditionsPage = () => {
             3. Payment Methods & Settlement
           </h2>
           <p>
-            Orders can be completed via <strong>Cash on Delivery (COD)</strong> or verified <strong>Online Payment</strong> (Easypaisa, JazzCash, SadaPay).
+            Orders can be completed via <strong>Cash on Delivery (COD)</strong> for dispatched deliveries or <strong>Farm Gate Self-Pickup</strong> for in-person harvest collections directly at the farmer's physical premises.
           </p>
           <p className="text-slate-600 text-xs bg-slate-50 p-4 rounded-xl border border-slate-200">
-            For Cash on Delivery orders, payment must be presented to the delivery courier in exact cash upon delivery of the agricultural lot. For online payments, transaction authorization tokens are verified against backend cryptographic signatures before harvest dispatch.
+            For Cash on Delivery orders, payment is handed directly to the delivery rider upon arrival and inspection. For Farm Gate Self-Pickup orders, payment is handed directly to the farmer upon in-person pickup at the farm fields. No third-party online payment gateways are used.
           </p>
         </section>
 

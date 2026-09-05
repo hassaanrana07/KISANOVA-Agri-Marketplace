@@ -1,9 +1,12 @@
 const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
+const pool = require('../config/db');
+const { getJwtSecret } = require('../middleware/auth');
 
 let ioInstance = null;
 
 /**
- * Initialize Socket.IO with HTTP Server
+ * Initialize Socket.IO with HTTP Server and Security Hardening
  */
 const initSocket = (httpServer) => {
   const rawClientUrls = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map(u => u.trim()) : [];
@@ -34,22 +37,100 @@ const initSocket = (httpServer) => {
     pingTimeout: 60000
   });
 
+  // Socket.IO Handshake Authentication Middleware
+  ioInstance.use(async (socket, next) => {
+    try {
+      const rawToken = socket.handshake.auth?.token || socket.handshake.headers?.authorization;
+      if (!rawToken) {
+        return next(new Error('Authentication error: Token required for WebSocket connection.'));
+      }
+
+      const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7).trim() : rawToken.trim();
+      const decoded = jwt.verify(token, getJwtSecret());
+
+      const [users] = await pool.query(
+        'SELECT id, name, email, role, status FROM users WHERE id = ?',
+        [decoded.id]
+      );
+
+      if (users.length === 0) {
+        return next(new Error('Authentication error: User no longer exists.'));
+      }
+
+      const user = users[0];
+      if (user.status === 'SUSPENDED') {
+        return next(new Error('Authentication error: Account suspended.'));
+      }
+
+      socket.user = user;
+
+      // If seller, attach seller record
+      if (user.role === 'SELLER') {
+        const [sellers] = await pool.query('SELECT id FROM sellers WHERE user_id = ?', [user.id]);
+        if (sellers.length > 0) {
+          socket.seller = sellers[0];
+        }
+      }
+
+      next();
+    } catch (err) {
+      return next(new Error('Authentication error: Invalid or expired token.'));
+    }
+  });
+
   ioInstance.on('connection', (socket) => {
-    // 1. Join user personal notification room
+    // Automatically join the authenticated user's private personal notification room
+    if (socket.user && socket.user.id) {
+      socket.join(`user_${socket.user.id}`);
+    }
+
+    // Client join_user event: verify ownership before joining
     socket.on('join_user', (userId) => {
-      if (userId) {
+      if (userId && Number(userId) === Number(socket.user.id)) {
         socket.join(`user_${userId}`);
       }
     });
 
-    // 2. Join specific conversation room
-    socket.on('join_conversation', (conversationId) => {
-      if (conversationId) {
-        socket.join(`conv_${conversationId}`);
+    // Join specific conversation room with authorization check
+    socket.on('join_conversation', async (conversationId) => {
+      try {
+        if (!conversationId) return;
+
+        // Admin can join any conversation for monitoring
+        if (socket.user.role === 'ADMIN') {
+          socket.join(`conv_${conversationId}`);
+          return;
+        }
+
+        // Query conversation participants
+        const [conversations] = await pool.query(
+          `SELECT c.id, c.buyer_id, c.seller_id, s.user_id as seller_user_id
+           FROM conversations c
+           LEFT JOIN sellers s ON c.seller_id = s.id
+           WHERE c.id = ?`,
+          [conversationId]
+        );
+
+        if (conversations.length === 0) {
+          socket.emit('error', { message: 'Conversation not found.' });
+          return;
+        }
+
+        const conv = conversations[0];
+        const isBuyer = Number(socket.user.id) === Number(conv.buyer_id);
+        const isSeller = Number(socket.user.id) === Number(conv.seller_user_id);
+
+        if (isBuyer || isSeller) {
+          socket.join(`conv_${conversationId}`);
+        } else {
+          socket.emit('error', { message: 'Unauthorized: You are not a participant in this conversation.' });
+        }
+      } catch (err) {
+        console.error('Socket join_conversation error:', err);
       }
     });
 
-    // 3. Leave conversation room
+    // Leave conversation room
     socket.on('leave_conversation', (conversationId) => {
       if (conversationId) {
         socket.leave(`conv_${conversationId}`);

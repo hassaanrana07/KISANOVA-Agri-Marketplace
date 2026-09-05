@@ -19,15 +19,16 @@ const getDashboardMetrics = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Seller profile not found.' });
     }
 
-    // 1. Summary Cards Aggregations
+    // 1. Summary Cards Aggregations (Real PKR metrics for COD and Farm Pickup)
     const [statsResult] = await pool.query(
       `SELECT 
          COUNT(so.id) as total_orders,
-         COALESCE(SUM(CASE WHEN so.status = 'PENDING' THEN 1 ELSE 0 END), 0) as pending_orders,
-         COALESCE(SUM(CASE WHEN so.status = 'DELIVERED' THEN 1 ELSE 0 END), 0) as completed_orders,
-         COALESCE(SUM(CASE WHEN so.payment_status = 'PAID' THEN so.subtotal ELSE 0 END), 0) as total_revenue,
-         COALESCE(SUM(so.amount_paid), 0) as paid_amount,
-         COALESCE(SUM(CASE WHEN so.payment_status = 'PENDING' THEN so.amount_due ELSE 0 END), 0) as pending_payment_amount
+         COALESCE(SUM(CASE WHEN so.status IN ('PENDING', 'CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP') THEN 1 ELSE 0 END), 0) as pending_orders,
+         COALESCE(SUM(CASE WHEN so.status IN ('DELIVERED', 'PICKED_UP') THEN 1 ELSE 0 END), 0) as completed_orders,
+         COALESCE(SUM(CASE WHEN so.status != 'CANCELLED' THEN so.subtotal + COALESCE(so.delivery_fee, 0) ELSE 0 END), 0) as gross_order_value,
+         COALESCE(SUM(CASE WHEN so.payment_status = 'PAID' THEN so.subtotal + COALESCE(so.delivery_fee, 0) ELSE 0 END), 0) as cash_collected,
+         COALESCE(SUM(CASE WHEN so.payment_status != 'PAID' AND so.status != 'CANCELLED' AND so.payment_method = 'COD' THEN so.subtotal + COALESCE(so.delivery_fee, 0) ELSE 0 END), 0) as pending_cod_amount,
+         COALESCE(SUM(CASE WHEN so.status != 'CANCELLED' AND (so.payment_method = 'FARM_PICKUP' OR so.fulfillment_method = 'PICKUP') THEN so.subtotal ELSE 0 END), 0) as farm_pickup_amount
        FROM seller_orders so
        WHERE so.seller_id = ?`,
       [seller.id]
@@ -60,7 +61,7 @@ const getDashboardMetrics = async (req, res) => {
       [seller.id]
     );
 
-    // 5. Orders & Revenue timeline (Past 7 days / weekly distribution)
+    // 5. Orders & Revenue timeline (Past 30 days)
     const [timelineData] = await pool.query(
       `SELECT 
          DATE_FORMAT(o.created_at, '%Y-%m-%d') as date_label,
@@ -86,8 +87,9 @@ const getDashboardMetrics = async (req, res) => {
          so.delivery_fee,
          so.status as seller_status,
          so.payment_status,
+         so.payment_method,
+         so.fulfillment_method,
          o.delivery_name,
-         o.fulfillment_method,
          COUNT(oi.id) as items_count
        FROM seller_orders so
        JOIN orders o ON so.order_id = o.id
@@ -100,6 +102,10 @@ const getDashboardMetrics = async (req, res) => {
     );
 
     const stats = statsResult[0] || {};
+    const grossOrderValue = parseFloat(stats.gross_order_value || 0);
+    const cashCollected = parseFloat(stats.cash_collected || 0);
+    const pendingCodAmount = parseFloat(stats.pending_cod_amount || 0);
+    const farmPickupAmount = parseFloat(stats.farm_pickup_amount || 0);
 
     return res.json({
       success: true,
@@ -110,10 +116,13 @@ const getDashboardMetrics = async (req, res) => {
           totalOrders: Number(stats.total_orders || 0),
           pendingOrders: Number(stats.pending_orders || 0),
           completedOrders: Number(stats.completed_orders || 0),
-          totalRevenue: parseFloat(stats.total_revenue || 0),
-          paidAmount: parseFloat(stats.paid_amount || 0),
-          pendingPaymentAmount: parseFloat(stats.pending_payment_amount || 0),
-          refunds: 0.00,
+          grossOrderValue,
+          cashCollected,
+          pendingCodAmount,
+          farmPickupAmount,
+          totalRevenue: cashCollected, // Cash actually collected/settled
+          paidAmount: cashCollected,
+          pendingPaymentAmount: pendingCodAmount,
           orderStatusCounts,
           paymentStatusCounts,
           productCounts,
@@ -521,6 +530,13 @@ const getSellerOrderById = async (req, res) => {
 
 /**
  * Update Seller Sub-Order Fulfillment Status
+ * Enforces strict state machine transitions:
+ * - PENDING -> CONFIRMED | CANCELLED
+ * - CONFIRMED -> PROCESSING | CANCELLED
+ * - PROCESSING -> SHIPPED (Delivery) | READY_FOR_PICKUP (Pickup) | CANCELLED
+ * - SHIPPED -> DELIVERED (Transitions COD to PAID)
+ * - READY_FOR_PICKUP -> PICKED_UP (Transitions Farm Pickup to PAID)
+ * - Terminal states (DELIVERED, PICKED_UP, CANCELLED) cannot transition further
  */
 const updateSellerOrderStatus = async (req, res) => {
   try {
@@ -531,46 +547,107 @@ const updateSellerOrderStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Seller profile not found.' });
     }
 
-    const validStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid status. Must be one of [${validStatuses.join(', ')}]`
-      });
-    }
-
     const [subOrders] = await pool.query(
-      'SELECT id, order_id, payment_method, subtotal FROM seller_orders WHERE id = ? AND seller_id = ?',
+      'SELECT id, order_id, status, fulfillment_method, payment_method, subtotal, delivery_fee FROM seller_orders WHERE id = ? AND seller_id = ?',
       [id, seller.id]
     );
 
     if (subOrders.length === 0) {
-      return res.status(404).json({ success: false, message: 'Sub-order not found.' });
+      return res.status(404).json({ success: false, message: 'Sub-order not found or not authorized for this seller.' });
     }
 
-    if (req.body.payment_status && subOrders[0].payment_method === 'ONLINE') {
-      return res.status(403).json({
+    const subOrder = subOrders[0];
+    const currentStatus = subOrder.status;
+    const fulfillmentMethod = (subOrder.fulfillment_method || 'DELIVERY').toUpperCase();
+
+    // Define valid state transitions
+    const allowedTransitions = {
+      'PENDING': ['CONFIRMED', 'CANCELLED'],
+      'CONFIRMED': ['PROCESSING', 'CANCELLED'],
+      'PROCESSING': fulfillmentMethod === 'PICKUP' ? ['READY_FOR_PICKUP', 'CANCELLED'] : ['SHIPPED', 'CANCELLED'],
+      'READY_FOR_PICKUP': ['PICKED_UP'],
+      'SHIPPED': ['DELIVERED'],
+      'DELIVERED': [],
+      'PICKED_UP': [],
+      'CANCELLED': []
+    };
+
+    // Tolerate READY_FOR_PICKUP or SHIPPED if fulfillment allows
+    if (currentStatus === 'PROCESSING') {
+      if (!allowedTransitions['PROCESSING'].includes(status) && (status === 'READY_FOR_PICKUP' || status === 'SHIPPED')) {
+        allowedTransitions['PROCESSING'].push(status);
+      }
+    }
+
+    const validNext = allowedTransitions[currentStatus] || [];
+
+    if (!validNext.includes(status)) {
+      if (['DELIVERED', 'PICKED_UP', 'CANCELLED'].includes(currentStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: `Order is already in terminal state "${currentStatus}" and cannot be transitioned further.`
+        });
+      }
+      return res.status(400).json({
         success: false,
-        message: 'Sellers cannot manually modify online payment status. Online transactions are verified strictly by payment provider gateways.'
+        message: `Invalid order status transition from "${currentStatus}" to "${status}". Allowed transitions: [${validNext.join(', ')}]`
       });
     }
 
-    await pool.query(
-      'UPDATE seller_orders SET status = ?, updated_at = NOW() WHERE id = ?',
-      [status, id]
+    const orderTotal = parseFloat(subOrder.subtotal) + parseFloat(subOrder.delivery_fee || 0);
+
+    // If order reaches terminal completion (DELIVERED for COD or PICKED_UP for Farm Pickup), cash is collected
+    const isCompleted = status === 'DELIVERED' || status === 'PICKED_UP';
+
+    if (isCompleted) {
+      await pool.query(
+        `UPDATE seller_orders 
+         SET status = ?, payment_status = 'PAID', amount_paid = ?, amount_remaining = 0.00, updated_at = NOW() 
+         WHERE id = ?`,
+        [status, orderTotal, id]
+      );
+    } else {
+      await pool.query(
+        'UPDATE seller_orders SET status = ?, updated_at = NOW() WHERE id = ?',
+        [status, id]
+      );
+    }
+
+    // Check sibling orders to update parent order status
+    const [siblings] = await pool.query(
+      'SELECT id, status, payment_status, subtotal, delivery_fee FROM seller_orders WHERE order_id = ?',
+      [subOrder.order_id]
     );
 
-    // If COD order is marked DELIVERED, mark COD payment as collected/paid
-    if (status === 'DELIVERED' && subOrders[0].payment_method === 'COD') {
+    const allFinished = siblings.every(s => ['DELIVERED', 'PICKED_UP', 'CANCELLED'].includes(s.status));
+    const allPaid = siblings.filter(s => s.status !== 'CANCELLED').every(s => s.payment_status === 'PAID');
+
+    if (allPaid && siblings.some(s => s.status !== 'CANCELLED')) {
       await pool.query(
-        'UPDATE seller_orders SET payment_status = "PAID", amount_paid = subtotal, amount_remaining = 0.00 WHERE id = ?',
-        [id]
+        `UPDATE orders 
+         SET payment_status = 'PAID', amount_paid = total_amount, amount_remaining = 0.00, updated_at = NOW() 
+         WHERE id = ?`,
+        [subOrder.order_id]
+      );
+      await pool.query(
+        'UPDATE payments SET status = "PAID", amount_paid = amount, amount_remaining = 0.00, updated_at = NOW() WHERE order_id = ?',
+        [subOrder.order_id]
+      );
+    }
+
+    if (allFinished) {
+      const parentNewStatus = siblings.some(s => ['DELIVERED', 'PICKED_UP'].includes(s.status)) ? 'DELIVERED' : 'CANCELLED';
+      await pool.query(
+        'UPDATE orders SET order_status = ?, updated_at = NOW() WHERE id = ?',
+        [parentNewStatus, subOrder.order_id]
       );
     }
 
     return res.json({
       success: true,
-      message: `Order status updated to ${status}.`
+      message: isCompleted
+        ? `Order status updated to ${status}. Cash payment marked as PAID (Collected).`
+        : `Order status updated to ${status}.`
     });
   } catch (error) {
     console.error('Error updating order status:', error);

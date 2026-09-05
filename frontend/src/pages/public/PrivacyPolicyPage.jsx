@@ -56,10 +56,10 @@ const PrivacyPolicyPage = () => {
         <section className="space-y-3">
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-agro-600" />
-            3. Payment Security & Payment Gateways
+            3. Payment Handling & Privacy
           </h2>
           <p>
-            Kisanova does not store full credit card numbers, mobile wallet MPINs, or online banking passwords. Payments processed through Easypaisa, JazzCash, or SadaPay are handled via secure server-side HMAC validation and direct authorized provider integrations.
+            Kisanova does not collect or store credit card numbers, debit cards, bank account pins, or mobile wallet login credentials. Orders are transacted via direct Cash on Delivery (COD) or in-person Farm Gate Self-Pickup, eliminating online financial intercept vulnerabilities.
           </p>
         </section>
 

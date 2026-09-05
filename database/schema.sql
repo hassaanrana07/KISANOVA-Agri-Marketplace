@@ -167,13 +167,13 @@ CREATE TABLE orders (
     amount_remaining DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     delivery_name VARCHAR(120) NOT NULL,
     delivery_phone VARCHAR(30) NOT NULL,
-    delivery_address TEXT NOT NULL,
+    delivery_address TEXT NULL, -- Nullable for Farm Gate Pickup
     delivery_notes TEXT NULL,
-    payment_method ENUM('COD', 'ONLINE') NOT NULL DEFAULT 'COD',
-    online_provider VARCHAR(50) NULL, -- 'easypaisa', 'jazzcash', 'sadapay', 'sandbox'
-    payment_status ENUM('UNPAID', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'COD', -- 'COD', 'FARM_PICKUP'
+    online_provider VARCHAR(50) NULL,
+    payment_status ENUM('UNPAID', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'UNPAID',
     transaction_reference VARCHAR(150) NULL,
-    order_status ENUM('PENDING', 'PROCESSING', 'COMPLETED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
+    order_status VARCHAR(50) NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP', 'SHIPPED', 'PICKED_UP', 'DELIVERED', 'CANCELLED'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (buyer_id) REFERENCES users(id) ON DELETE RESTRICT,
@@ -195,11 +195,11 @@ CREATE TABLE seller_orders (
     amount_due DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     amount_paid DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     amount_remaining DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    payment_method ENUM('COD', 'ONLINE') NOT NULL DEFAULT 'COD',
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'COD', -- 'COD', 'FARM_PICKUP'
     online_provider VARCHAR(50) NULL,
-    payment_status ENUM('UNPAID', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
+    payment_status ENUM('UNPAID', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'UNPAID',
     transaction_reference VARCHAR(150) NULL,
-    status ENUM('PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
+    status VARCHAR(50) NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP', 'SHIPPED', 'PICKED_UP', 'DELIVERED', 'CANCELLED'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
@@ -264,14 +264,14 @@ CREATE TABLE payments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
     seller_id INT NULL,
-    payment_provider VARCHAR(50) NOT NULL DEFAULT 'sandbox', -- 'sandbox', 'easypaisa', 'jazzcash', 'sadapay', 'bank_transfer'
+    payment_provider VARCHAR(50) NOT NULL DEFAULT 'cod', -- 'cod', 'farm_pickup'
     transaction_reference VARCHAR(150) NOT NULL UNIQUE,
     amount DECIMAL(10, 2) NOT NULL,
     currency VARCHAR(10) NOT NULL DEFAULT 'PKR',
     amount_paid DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     amount_remaining DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     status ENUM('PENDING', 'PARTIALLY_PAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
-    payment_method VARCHAR(50) NOT NULL DEFAULT 'ONLINE', -- 'COD', 'ONLINE', 'bank_transfer'
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'COD', -- 'COD', 'FARM_PICKUP'
     proof_url VARCHAR(500) NULL, -- for manual bank transfer proof upload
     webhook_payload JSON NULL,
     refund_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,

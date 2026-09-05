@@ -22,25 +22,14 @@ const checkout = async (req, res) => {
       delivery_phone,
       delivery_address,
       delivery_notes,
-      fulfillment_method = 'DELIVERY' // 'DELIVERY' or 'PICKUP'
+      fulfillment_method = 'DELIVERY', // global fallback: 'DELIVERY' or 'PICKUP'
+      seller_fulfillments = {} // optional per-seller mapping: { [sellerId]: 'DELIVERY' | 'PICKUP' }
     } = req.body;
 
-    // Payment in Kisanova is strictly Cash on Delivery (COD)
-    const normalizedMethod = 'COD';
-    const normalizedProvider = null;
-
-    if (!delivery_name || !delivery_phone || !delivery_address) {
+    if (!delivery_name || !delivery_phone) {
       return res.status(400).json({
         success: false,
-        message: 'Recipient name, contact phone number, and address are required.'
-      });
-    }
-
-    const normalizedFulfillment = (fulfillment_method || 'DELIVERY').toUpperCase();
-    if (!['DELIVERY', 'PICKUP'].includes(normalizedFulfillment)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid fulfillment method. Choose either DELIVERY or PICKUP.'
+        message: 'Recipient contact name and phone number are required.'
       });
     }
 
@@ -67,7 +56,29 @@ const checkout = async (req, res) => {
       });
     }
 
-    // 2. Validate stock, seller approval, and fulfillment availability
+    // 2. Determine fulfillment method per seller and check if delivery address is required
+    const resolveFulfillment = (val) => {
+      const raw = (typeof val === 'object' && val !== null ? val.fulfillment_type : val) || fulfillment_method || 'DELIVERY';
+      const upper = String(raw).toUpperCase();
+      return (upper === 'PICKUP' || upper === 'FARM_PICKUP') ? 'PICKUP' : 'DELIVERY';
+    };
+
+    let anyDeliveryRequired = false;
+    for (const item of cartItems) {
+      const sellerFulfillment = resolveFulfillment(seller_fulfillments[item.seller_id]);
+      if (sellerFulfillment === 'DELIVERY') {
+        anyDeliveryRequired = true;
+      }
+    }
+
+    if (anyDeliveryRequired && (!delivery_address || !delivery_address.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Delivery address is required for orders with courier delivery.'
+      });
+    }
+
+    // 3. Validate stock, seller approval, and fulfillment capability per item
     for (const item of cartItems) {
       if (item.product_status !== 'ACTIVE' || item.seller_approval !== 'APPROVED') {
         return res.status(400).json({
@@ -81,23 +92,24 @@ const checkout = async (req, res) => {
           message: `Insufficient stock for "${item.title}". Only ${item.available_quantity} available.`
         });
       }
-      if (normalizedFulfillment === 'DELIVERY' && item.delivery_available === 0) {
+      const sFulfillment = resolveFulfillment(seller_fulfillments[item.seller_id]);
+      if (sFulfillment === 'DELIVERY' && item.delivery_available === 0) {
         return res.status(400).json({
           success: false,
-          message: `Delivery is not offered by ${item.farm_name}. Please choose Farm Pickup.`
+          message: `Delivery is not offered by ${item.farm_name}. Please choose Farm Gate Self-Pickup.`
         });
       }
-      if (normalizedFulfillment === 'PICKUP' && item.pickup_available === 0) {
+      if (sFulfillment === 'PICKUP' && item.pickup_available === 0) {
         return res.status(400).json({
           success: false,
-          message: `Farm Pickup is not offered by ${item.farm_name}. Please choose Delivery.`
+          message: `Farm Pickup is not offered by ${item.farm_name}. Please choose Courier Delivery.`
         });
       }
     }
 
     await connection.beginTransaction();
 
-    // 3. Group cart items by seller & calculate subtotals and fulfillment fees
+    // 4. Group cart items by seller & calculate subtotals and fulfillment fees
     const sellerGroups = {};
     let itemsSubtotal = 0;
     let totalDeliveryFee = 0;
@@ -109,25 +121,31 @@ const checkout = async (req, res) => {
       const itemSubtotal = parseFloat(item.quantity) * parseFloat(item.price);
       itemsSubtotal += itemSubtotal;
 
+      const sFulfillment = resolveFulfillment(seller_fulfillments[item.seller_id]);
+
       if (!sellerGroups[item.seller_id]) {
-        const sellerFee = normalizedFulfillment === 'DELIVERY'
+        const sellerFee = sFulfillment === 'DELIVERY'
           ? (item.seller_delivery_fee !== null ? parseFloat(item.seller_delivery_fee) : 300.00)
           : 0.00;
 
         totalDeliveryFee += sellerFee;
 
-        if (item.estimated_delivery_min_days && item.estimated_delivery_min_days < minDeliveryDays) {
-          minDeliveryDays = item.estimated_delivery_min_days;
+        if (sFulfillment === 'DELIVERY') {
+          if (item.estimated_delivery_min_days && item.estimated_delivery_min_days < minDeliveryDays) {
+            minDeliveryDays = item.estimated_delivery_min_days;
+          }
+          if (item.estimated_delivery_max_days && item.estimated_delivery_max_days > maxDeliveryDays) {
+            maxDeliveryDays = item.estimated_delivery_max_days;
+          }
         }
-        if (item.estimated_delivery_max_days && item.estimated_delivery_max_days > maxDeliveryDays) {
-          maxDeliveryDays = item.estimated_delivery_max_days;
-        }
+
         if (item.pickup_instructions) {
           combinedPickupInstructions.push(`${item.farm_name}: ${item.pickup_instructions}`);
         }
 
         sellerGroups[item.seller_id] = {
           seller_id: item.seller_id,
+          fulfillment_method: sFulfillment,
           subtotal: 0,
           delivery_fee: sellerFee,
           pickup_instructions: item.pickup_instructions || null,
@@ -138,6 +156,7 @@ const checkout = async (req, res) => {
       sellerGroups[item.seller_id].subtotal += itemSubtotal;
       sellerGroups[item.seller_id].items.push({
         product_id: item.product_id,
+        title: item.title,
         quantity: item.quantity,
         unit_price: item.price,
         subtotal: itemSubtotal
@@ -147,7 +166,14 @@ const checkout = async (req, res) => {
     const grandTotal = itemsSubtotal + totalDeliveryFee;
     const orderNumber = 'KSN-' + Date.now().toString().slice(-6) + Math.floor(100 + Math.random() * 900);
 
-    // 4. Create Parent Order (Default COD & UNPAID)
+    // Determine overall fulfillment and payment method
+    const sellerFulfillmentList = Object.values(sellerGroups).map(g => g.fulfillment_method);
+    const allPickup = sellerFulfillmentList.every(f => f === 'PICKUP');
+    const allDelivery = sellerFulfillmentList.every(f => f === 'DELIVERY');
+    const parentFulfillment = allPickup ? 'PICKUP' : allDelivery ? 'DELIVERY' : 'MIXED';
+    const parentPaymentMethod = allPickup ? 'FARM_PICKUP' : 'COD';
+
+    // 5. Create Parent Order
     const [orderResult] = await connection.query(
       `INSERT INTO orders 
         (order_number, buyer_id, total_amount, currency, fulfillment_method, delivery_fee, 
@@ -155,47 +181,50 @@ const checkout = async (req, res) => {
          amount_due, amount_paid, amount_remaining,
          delivery_name, delivery_phone, delivery_address, delivery_notes, 
          payment_method, online_provider, payment_status, order_status)
-       VALUES (?, ?, ?, 'PKR', ?, ?, ?, ?, ?, ?, 0.00, ?, ?, ?, ?, ?, 'COD', NULL, 'UNPAID', 'PENDING')`,
+       VALUES (?, ?, ?, 'PKR', ?, ?, ?, ?, ?, ?, 0.00, ?, ?, ?, ?, ?, ?, NULL, 'UNPAID', 'PENDING')`,
       [
         orderNumber,
         buyerId,
         grandTotal,
-        normalizedFulfillment,
+        parentFulfillment,
         totalDeliveryFee,
-        minDeliveryDays !== 999 ? minDeliveryDays : 2,
-        maxDeliveryDays !== 0 ? maxDeliveryDays : 4,
+        minDeliveryDays !== 999 ? minDeliveryDays : (allPickup ? null : 2),
+        maxDeliveryDays !== 0 ? maxDeliveryDays : (allPickup ? null : 4),
         combinedPickupInstructions.join(' | ') || null,
         grandTotal,
         grandTotal,
         delivery_name,
         delivery_phone,
-        delivery_address,
-        delivery_notes || null
+        anyDeliveryRequired ? delivery_address.trim() : (delivery_address ? delivery_address.trim() : 'Farm Gate Self-Pickup'),
+        delivery_notes || null,
+        parentPaymentMethod
       ]
     );
 
     const parentOrderId = orderResult.insertId;
     const createdSellerOrders = [];
 
-    // 5. Create Seller Orders and Order Items
+    // 6. Create Seller Orders and Order Items with Atomic Stock Decrements
     for (const sellerId of Object.keys(sellerGroups)) {
       const group = sellerGroups[sellerId];
       const sellerOrderTotal = group.subtotal + group.delivery_fee;
+      const sellerPaymentMethod = group.fulfillment_method === 'PICKUP' ? 'FARM_PICKUP' : 'COD';
 
       const [sellerOrderResult] = await connection.query(
         `INSERT INTO seller_orders 
           (order_id, seller_id, subtotal, fulfillment_method, delivery_fee, 
            amount_due, amount_paid, amount_remaining,
            payment_method, online_provider, payment_status, status)
-         VALUES (?, ?, ?, ?, ?, ?, 0.00, ?, 'COD', NULL, 'UNPAID', 'PENDING')`,
+         VALUES (?, ?, ?, ?, ?, ?, 0.00, ?, ?, NULL, 'UNPAID', 'PENDING')`,
         [
           parentOrderId,
           sellerId,
           group.subtotal,
-          normalizedFulfillment,
+          group.fulfillment_method,
           group.delivery_fee,
           sellerOrderTotal,
-          sellerOrderTotal
+          sellerOrderTotal,
+          sellerPaymentMethod
         ]
       );
 
@@ -204,6 +233,8 @@ const checkout = async (req, res) => {
         sellerId: parseInt(sellerId, 10),
         sellerOrderId,
         total: sellerOrderTotal,
+        fulfillmentMethod: group.fulfillment_method,
+        paymentMethod: sellerPaymentMethod,
         itemCount: group.items.length
       });
 
@@ -214,15 +245,35 @@ const checkout = async (req, res) => {
           [sellerOrderId, itm.product_id, itm.quantity, itm.unit_price, itm.subtotal]
         );
 
-        // Decrement product inventory
-        await connection.query(
-          'UPDATE products SET available_quantity = available_quantity - ? WHERE id = ?',
-          [itm.quantity, itm.product_id]
+        // ATOMIC INVENTORY DECREMENT: Ensures stock never drops below zero even under concurrent requests
+        const [decResult] = await connection.query(
+          'UPDATE products SET available_quantity = available_quantity - ? WHERE id = ? AND available_quantity >= ?',
+          [itm.quantity, itm.product_id, itm.quantity]
         );
+
+        if (decResult.affectedRows === 0) {
+          throw new Error(`Insufficient available stock for product "${itm.title}". The item was purchased concurrently by another user.`);
+        }
       }
     }
 
-    // 6. Clear buyer's cart
+    // 7. Create payment audit record
+    const refPrefix = parentPaymentMethod === 'FARM_PICKUP' ? 'FARM_PICKUP' : 'COD';
+    await connection.query(
+      `INSERT INTO payments 
+        (order_id, payment_provider, transaction_reference, amount, currency, amount_paid, amount_remaining, status, payment_method)
+       VALUES (?, ?, ?, ?, 'PKR', 0.00, ?, 'PENDING', ?)`,
+      [
+        parentOrderId,
+        parentPaymentMethod === 'FARM_PICKUP' ? 'farm_gate_pickup' : 'cash_on_delivery',
+        `${refPrefix}-${parentOrderId}-${Date.now().toString().slice(-6)}`,
+        grandTotal,
+        grandTotal,
+        parentPaymentMethod
+      ]
+    );
+
+    // 8. Clear buyer's cart
     const [carts] = await connection.query('SELECT id FROM carts WHERE buyer_id = ?', [buyerId]);
     if (carts.length > 0) {
       await connection.query('DELETE FROM cart_items WHERE cart_id = ?', [carts[0].id]);
@@ -230,14 +281,15 @@ const checkout = async (req, res) => {
 
     await connection.commit();
 
-    // 7. Generate Real-Time Notifications & Socket.IO Alerts for each seller
+    // 9. Real-Time Socket.IO & Notification Dispatch to Sellers
     for (const sOrd of createdSellerOrders) {
       try {
         const [sellerRows] = await pool.query('SELECT user_id, farm_name FROM sellers WHERE id = ?', [sOrd.sellerId]);
         if (sellerRows.length > 0) {
           const sellerUserId = sellerRows[0].user_id;
+          const fulfillmentLabel = sOrd.fulfillmentMethod === 'PICKUP' ? 'Farm Gate Self-Pickup' : 'Cash on Delivery';
           const notifTitle = 'New Customer Order Received';
-          const notifMsg = `Order #${orderNumber} placed by ${delivery_name} for PKR ${sOrd.total.toLocaleString()} (Cash on Delivery).`;
+          const notifMsg = `Order #${orderNumber} placed by ${delivery_name} for PKR ${sOrd.total.toLocaleString()} (${fulfillmentLabel}).`;
           const notifLink = `/seller/orders/${sOrd.sellerOrderId}`;
 
           const [notifResult] = await pool.query(
@@ -246,7 +298,6 @@ const checkout = async (req, res) => {
             [sellerUserId, sOrd.sellerId, notifTitle, notifMsg, notifLink]
           );
 
-          // Emit real-time socket event to seller
           socketService.emitToUser(sellerUserId, 'new_order', {
             notificationId: notifResult.insertId,
             orderId: parentOrderId,
@@ -254,7 +305,8 @@ const checkout = async (req, res) => {
             orderNumber,
             buyerName: delivery_name,
             totalAmount: sOrd.total,
-            fulfillmentMethod: normalizedFulfillment,
+            fulfillmentMethod: sOrd.fulfillmentMethod,
+            paymentMethod: sOrd.paymentMethod,
             title: notifTitle,
             message: notifMsg,
             created_at: new Date().toISOString()
@@ -267,7 +319,9 @@ const checkout = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Order placed successfully with Cash on Delivery.',
+      message: parentPaymentMethod === 'FARM_PICKUP'
+        ? 'Order placed successfully for Farm Gate Self-Pickup.'
+        : 'Order placed successfully with Cash on Delivery.',
       data: {
         orderId: parentOrderId,
         orderNumber,
@@ -275,8 +329,8 @@ const checkout = async (req, res) => {
         deliveryFee: totalDeliveryFee,
         totalAmount: grandTotal,
         currency: 'PKR',
-        fulfillmentMethod: normalizedFulfillment,
-        paymentMethod: 'COD',
+        fulfillmentMethod: parentFulfillment,
+        paymentMethod: parentPaymentMethod,
         paymentStatus: 'UNPAID',
         sellerCount: Object.keys(sellerGroups).length
       }
@@ -284,10 +338,9 @@ const checkout = async (req, res) => {
   } catch (error) {
     await connection.rollback();
     console.error('Checkout error:', error);
-    return res.status(500).json({
+    return res.status(400).json({
       success: false,
-      message: 'Checkout processing failed.',
-      error: error.message
+      message: error.message || 'Checkout processing failed.'
     });
   } finally {
     connection.release();
@@ -341,15 +394,7 @@ const getOrderDetails = async (req, res) => {
     const role = req.user.role;
 
     // Fetch parent order
-    let orderQuery = 'SELECT * FROM orders WHERE id = ?';
-    let queryParams = [id];
-
-    if (role !== 'ADMIN') {
-      orderQuery += ' AND buyer_id = ?';
-      queryParams.push(userId);
-    }
-
-    const [orders] = await pool.query(orderQuery, queryParams);
+    const [orders] = await pool.query('SELECT * FROM orders WHERE id = ?', [id]);
 
     if (orders.length === 0) {
       return res.status(404).json({
@@ -360,7 +405,14 @@ const getOrderDetails = async (req, res) => {
 
     const order = orders[0];
 
-    // Fetch seller_orders with farm info
+    if (role !== 'ADMIN' && order.buyer_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to access this order.'
+      });
+    }
+
+    // Fetch seller_orders with farm info & per-seller delivery estimates
     const [sellerOrders] = await pool.query(
       `SELECT 
          so.id as seller_order_id,
@@ -376,7 +428,9 @@ const getOrderDetails = async (req, res) => {
          s.farm_name,
          s.phone as seller_phone,
          s.address as seller_address,
-         s.pickup_instructions
+         s.pickup_instructions,
+         s.estimated_delivery_min_days,
+         s.estimated_delivery_max_days
        FROM seller_orders so
        JOIN sellers s ON so.seller_id = s.id
        WHERE so.order_id = ?

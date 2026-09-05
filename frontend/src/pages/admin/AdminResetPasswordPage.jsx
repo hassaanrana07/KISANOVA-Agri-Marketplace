@@ -11,8 +11,7 @@ const AdminResetPasswordPage = () => {
   const loginUrl = isPort5174 ? '/login' : '/admin/login';
   const forgotUrl = isPort5174 ? '/forgot-password' : '/admin/forgot-password';
 
-  const [identifier, setIdentifier] = useState(searchParams.get('identifier') || '');
-  const [otp, setOtp] = useState('');
+  const [token, setToken] = useState(searchParams.get('token') || searchParams.get('resetToken') || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,8 +26,8 @@ const AdminResetPasswordPage = () => {
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!identifier.trim() || !otp.trim()) {
-      setErrorMessage('Please provide your administrator identifier and 6-digit authorization code.');
+    if (!token.trim()) {
+      setErrorMessage('Please provide your administrator password reset token.');
       return;
     }
 
@@ -45,8 +44,7 @@ const AdminResetPasswordPage = () => {
     setLoading(true);
     try {
       const res = await api.post('/auth/reset-password', {
-        identifier: identifier.trim(),
-        otp: otp.trim(),
+        token: token.trim(),
         newPassword
       });
 
@@ -58,11 +56,11 @@ const AdminResetPasswordPage = () => {
           });
         }, 1800);
       } else {
-        setErrorMessage(res.data.message || 'Verification failed. Please check the authorization code.');
+        setErrorMessage(res.data.message || 'Verification failed. Please check the authorization token.');
       }
     } catch (err) {
       setErrorMessage(
-        err.response?.data?.message || 'Failed to update password. Please check your authorization code.'
+        err.response?.data?.message || 'Failed to update password. Please check your reset token.'
       );
     } finally {
       setLoading(false);
@@ -86,7 +84,7 @@ const AdminResetPasswordPage = () => {
             </h2>
           </div>
           <p className="text-xs text-slate-500">
-            Enter the 6-digit authorization code sent to your registered contact along with your new password.
+            Enter your secure authorization token along with your new administrator password.
           </p>
         </div>
 
@@ -108,38 +106,22 @@ const AdminResetPasswordPage = () => {
         {/* Form */}
         <form onSubmit={handleResetPassword} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="admin-reset-id">
-              Administrator Email or Phone
-            </label>
-            <input
-              id="admin-reset-id"
-              type="text"
-              required
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="e.g. admin@agrilink.com"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white font-medium"
-            />
-          </div>
-
-          <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-slate-700" htmlFor="admin-code">
-                6-Digit Authorization Code
+              <label className="text-xs font-bold text-slate-700" htmlFor="admin-token">
+                Authorization Reset Token
               </label>
               <Link to={forgotUrl} className="text-[11px] font-semibold text-emerald-700 hover:underline">
-                Resend Code
+                Request New Token
               </Link>
             </div>
             <input
-              id="admin-code"
+              id="admin-token"
               type="text"
-              maxLength={6}
               required
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-              placeholder="123456"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-center text-lg tracking-widest font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white font-bold"
+              value={token}
+              onChange={(e) => setToken(e.target.value.trim())}
+              placeholder="Paste 64-character token"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-3 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white font-medium"
             />
           </div>
 

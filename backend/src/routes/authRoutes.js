@@ -5,18 +5,17 @@ const {
   login,
   getMe,
   forgotPassword,
-  verifyOtp,
   resetPassword
 } = require('../controllers/authController');
 const { requireAuth } = require('../middleware/auth');
+const { authLimiter, passwordResetLimiter } = require('../middleware/rateLimiter');
 
-router.post('/register', register);
-router.post('/login', login);
+router.post('/register', authLimiter, register);
+router.post('/login', authLimiter, login);
 router.get('/me', requireAuth, getMe);
 
-// Password Reset endpoints (Seller & Buyer via Email or Phone OTP)
-router.post('/forgot-password', forgotPassword);
-router.post('/verify-otp', verifyOtp);
-router.post('/reset-password', resetPassword);
+// Password Reset endpoints (32-byte hex token, 15-min expiry, rate-limited)
+router.post('/forgot-password', passwordResetLimiter, forgotPassword);
+router.post('/reset-password', passwordResetLimiter, resetPassword);
 
 module.exports = router;

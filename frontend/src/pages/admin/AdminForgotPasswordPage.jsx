@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, Mail, Phone, ArrowRight, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ShieldCheck, Mail, Phone, ArrowRight, AlertCircle, CheckCircle, ArrowLeft, ExternalLink } from 'lucide-react';
 import api from '../../services/api';
 
 const AdminForgotPasswordPage = () => {
@@ -8,16 +8,17 @@ const AdminForgotPasswordPage = () => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [devResetToken, setDevResetToken] = useState(null);
 
-  const navigate = useNavigate();
   const isPort5174 = typeof window !== 'undefined' && window.location.port === '5174';
   const loginUrl = isPort5174 ? '/login' : '/admin/login';
   const resetUrl = isPort5174 ? '/reset-password' : '/admin/reset-password';
 
-  const handleRequestOtp = async (e) => {
+  const handleRequestReset = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
+    setDevResetToken(null);
 
     if (!identifier.trim()) {
       setErrorMessage('Please enter your registered administrator email address.');
@@ -32,12 +33,12 @@ const AdminForgotPasswordPage = () => {
       });
 
       if (res.data.success) {
-        setSuccessMessage(res.data.message || 'Verification code dispatched to administrator contact.');
-        setTimeout(() => {
-          navigate(`${resetUrl}?identifier=${encodeURIComponent(identifier.trim())}`);
-        }, 1500);
+        setSuccessMessage(res.data.message || 'If an administrator account exists, a secure reset token has been generated.');
+        if (res.data.isDevelopment && res.data.devResetToken) {
+          setDevResetToken(res.data.devResetToken);
+        }
       } else {
-        setErrorMessage(res.data.message || 'Failed to request verification code.');
+        setErrorMessage(res.data.message || 'Failed to request password reset.');
       }
     } catch (err) {
       setErrorMessage(
@@ -65,7 +66,7 @@ const AdminForgotPasswordPage = () => {
             </h2>
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Enter your authorized administrative email or phone number to receive a secure authorization code.
+            Enter your authorized administrative email address to generate a secure password reset token.
           </p>
         </div>
 
@@ -78,17 +79,35 @@ const AdminForgotPasswordPage = () => {
         )}
 
         {successMessage && (
-          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-start gap-2.5">
-            <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-            <span>{successMessage}</span>
+          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold space-y-2.5">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+              <span>{successMessage}</span>
+            </div>
+
+            {/* Development Quick Navigation */}
+            {devResetToken && (
+              <div className="mt-3 pt-3 border-t border-emerald-200">
+                <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded block mb-1.5 w-fit">
+                  DEVELOPMENT MODE ACTIVE
+                </span>
+                <Link
+                  to={`${resetUrl}?token=${devResetToken}`}
+                  className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open Admin Reset Password Form</span>
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
         {/* Request Form */}
-        <form onSubmit={handleRequestOtp} className="space-y-4">
+        <form onSubmit={handleRequestReset} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5" htmlFor="admin-identifier">
-              Administrator Email or Phone
+              Administrator Email
             </label>
             <div className="relative">
               <input
@@ -115,7 +134,7 @@ const AdminForgotPasswordPage = () => {
             disabled={loading}
             className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
           >
-            <span>{loading ? 'Validating Admin Contact...' : 'Send Authorization Code'}</span>
+            <span>{loading ? 'Processing Request...' : 'Generate Reset Token'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>

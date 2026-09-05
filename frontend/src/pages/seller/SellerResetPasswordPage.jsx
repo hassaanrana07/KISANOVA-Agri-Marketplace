@@ -11,8 +11,7 @@ const SellerResetPasswordPage = () => {
   const loginUrl = isPort5140 ? '/login' : '/seller/login';
   const forgotUrl = isPort5140 ? '/forgot-password' : '/seller/forgot-password';
 
-  const [identifier, setIdentifier] = useState(searchParams.get('identifier') || '');
-  const [otp, setOtp] = useState('');
+  const [token, setToken] = useState(searchParams.get('token') || searchParams.get('resetToken') || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,8 +26,8 @@ const SellerResetPasswordPage = () => {
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!identifier.trim() || !otp.trim()) {
-      setErrorMessage('Please provide your registered identifier and 6-digit verification code.');
+    if (!token.trim()) {
+      setErrorMessage('Please provide your password reset token.');
       return;
     }
 
@@ -45,8 +44,7 @@ const SellerResetPasswordPage = () => {
     setLoading(true);
     try {
       const res = await api.post('/auth/reset-password', {
-        identifier: identifier.trim(),
-        otp: otp.trim(),
+        token: token.trim(),
         newPassword
       });
 
@@ -58,11 +56,11 @@ const SellerResetPasswordPage = () => {
           });
         }, 1800);
       } else {
-        setErrorMessage(res.data.message || 'Verification failed. Please check the code.');
+        setErrorMessage(res.data.message || 'Verification failed. Please check the token.');
       }
     } catch (err) {
       setErrorMessage(
-        err.response?.data?.message || 'Failed to reset password. Please check your verification code.'
+        err.response?.data?.message || 'Failed to reset password. Please check your reset token.'
       );
     } finally {
       setLoading(false);
@@ -86,7 +84,7 @@ const SellerResetPasswordPage = () => {
             </h2>
           </div>
           <p className="text-xs text-slate-400">
-            Enter the 6-digit code dispatched to your phone or email, along with your new password.
+            Enter your reset authorization token along with your new password.
           </p>
         </div>
 
@@ -100,7 +98,7 @@ const SellerResetPasswordPage = () => {
 
         {successMessage && (
           <div className="p-4 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-start gap-2.5">
-            <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-emerald-400" />
             <span>{successMessage}</span>
           </div>
         )}
@@ -108,61 +106,40 @@ const SellerResetPasswordPage = () => {
         {/* Reset Form */}
         <form onSubmit={handleResetPassword} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1.5" htmlFor="seller-reset-identifier">
-              Registered Email or Phone
+            <label className="block text-xs font-bold text-slate-300 mb-1.5" htmlFor="token">
+              Reset Authorization Token
             </label>
             <input
-              id="seller-reset-identifier"
+              id="token"
               type="text"
               required
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="e.g. farmer@domain.com or 03001234567"
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Paste your 32-byte hex reset token here"
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-3 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-agro-500 transition-all"
             />
+            <p className="text-[11px] text-slate-500 mt-1">Valid for 15 minutes from request</p>
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-slate-300" htmlFor="seller-otp">
-                6-Digit Verification Code
-              </label>
-              <Link to={forgotUrl} className="text-[11px] font-semibold text-agro-400 hover:underline">
-                Resend Code
-              </Link>
-            </div>
-            <input
-              id="seller-otp"
-              type="text"
-              maxLength={6}
-              required
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-              placeholder="123456"
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-3 text-center text-lg tracking-widest font-mono text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-agro-500 font-bold"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1.5" htmlFor="seller-new-password">
+            <label className="block text-xs font-bold text-slate-300 mb-1.5" htmlFor="new-password">
               New Password
             </label>
             <div className="relative">
               <input
-                id="seller-new-password"
+                id="new-password"
                 type={showPassword ? 'text' : 'password'}
                 required
-                minLength={6}
+                minLength="6"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="At least 6 characters"
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-3.5 pr-10 py-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
+                placeholder="Minimum 6 characters"
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-3.5 pr-10 py-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-agro-500 transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-slate-400 hover:text-slate-200"
-                tabIndex={-1}
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-200 focus:outline-none"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -170,25 +147,24 @@ const SellerResetPasswordPage = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1.5" htmlFor="seller-confirm-password">
+            <label className="block text-xs font-bold text-slate-300 mb-1.5" htmlFor="confirm-password">
               Confirm New Password
             </label>
             <div className="relative">
               <input
-                id="seller-confirm-password"
+                id="confirm-password"
                 type={showConfirmPassword ? 'text' : 'password'}
                 required
-                minLength={6}
+                minLength="6"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Re-enter new password"
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-3.5 pr-10 py-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium"
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-3.5 pr-10 py-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-agro-500 transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-3 text-slate-400 hover:text-slate-200"
-                tabIndex={-1}
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-200 focus:outline-none"
               >
                 {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -200,18 +176,23 @@ const SellerResetPasswordPage = () => {
             disabled={loading}
             className="w-full py-3 bg-agro-600 hover:bg-agro-500 disabled:bg-slate-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-agro-600/30 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
           >
-            <span>{loading ? 'Updating Password...' : 'Save New Password & Sign In'}</span>
+            <span>{loading ? 'Updating Password...' : 'Save New Password'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        <div className="text-center pt-2 border-t border-slate-700">
+        <div className="text-center pt-2 border-t border-slate-700 flex items-center justify-between text-xs">
+          <Link
+            to={forgotUrl}
+            className="font-bold text-slate-400 hover:text-agro-400"
+          >
+            Request New Link
+          </Link>
           <Link
             to={loginUrl}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white transition-colors"
+            className="font-bold text-agro-400 hover:text-agro-300"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Return to Seller Sign In</span>
+            Return to Sign In
           </Link>
         </div>
       </div>

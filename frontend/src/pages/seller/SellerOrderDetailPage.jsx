@@ -144,6 +144,11 @@ const SellerOrderDetailPage = () => {
     );
   }
 
+  const isPickupOrder = order?.fulfillment_method === 'PICKUP' || order?.fulfillment_type === 'FARM_PICKUP' || order?.seller_order_status === 'READY_FOR_PICKUP' || order?.seller_order_status === 'PICKED_UP';
+  const availableDispatchStatuses = isPickupOrder
+    ? ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP', 'PICKED_UP', 'CANCELLED']
+    : ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+
   return (
     <div className={`max-w-4xl mx-auto space-y-8 max-w-full overflow-x-hidden ${isRTL ? 'font-urdu' : ''}`}>
       {/* Top Header & Navigation */}
@@ -259,7 +264,7 @@ const SellerOrderDetailPage = () => {
               onChange={(e) => setSelectedDispatchStatus(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 text-xs font-bold rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-agro-500 cursor-pointer"
             >
-              {dispatchStatuses.map((s) => (
+              {availableDispatchStatuses.map((s) => (
                 <option key={s} value={s}>
                   {t(`status.${s.toLowerCase()}`, s)}
                 </option>
@@ -454,9 +459,9 @@ const SellerOrderDetailPage = () => {
           buyerName: order.delivery_name,
           buyerPhone: order.delivery_phone,
           deliveryAddress: order.delivery_address,
-          paymentMethod: 'COD',
+          paymentMethod: isPickupOrder ? 'FARM_PICKUP' : 'COD',
           paymentStatus: order.payment_status || 'UNPAID',
-          transactionReference: 'COD-CASH-SETTLEMENT',
+          transactionReference: isPickupOrder ? 'FARM-PICKUP-COLLECTION' : 'COD-CASH-SETTLEMENT',
           totalAmount: order.subtotal,
           items: order.items || []
         }}

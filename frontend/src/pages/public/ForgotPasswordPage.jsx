@@ -1,42 +1,42 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Sprout, Mail, Phone, ArrowRight, AlertCircle, CheckCircle, ArrowLeft, KeyRound } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Mail, ArrowRight, AlertCircle, CheckCircle, ArrowLeft, KeyRound, ExternalLink } from 'lucide-react';
 import api from '../../services/api';
 
 const ForgotPasswordPage = () => {
-  const [identifier, setIdentifier] = useState('');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [devResetToken, setDevResetToken] = useState(null);
 
-  const navigate = useNavigate();
-
-  const handleRequestOtp = async (e) => {
+  const handleRequestReset = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
+    setDevResetToken(null);
 
-    if (!identifier.trim()) {
-      setErrorMessage('Please enter your registered email address or mobile phone number.');
+    if (!email.trim()) {
+      setErrorMessage('Please enter your registered email address.');
       return;
     }
 
     setLoading(true);
     try {
       const res = await api.post('/auth/forgot-password', {
-        identifier: identifier.trim()
+        email: email.trim()
       });
 
       if (res.data.success) {
-        setSuccessMessage(res.data.message || 'Verification code dispatched successfully.');
-        setTimeout(() => {
-          navigate(`/reset-password?identifier=${encodeURIComponent(identifier.trim())}`);
-        }, 1500);
+        setSuccessMessage(res.data.message || 'If an account exists, a password reset link has been generated.');
+        if (res.data.isDevelopment && res.data.devResetToken) {
+          setDevResetToken(res.data.devResetToken);
+        }
       } else {
-        setErrorMessage(res.data.message || 'Failed to request verification code.');
+        setErrorMessage(res.data.message || 'Failed to process password reset request.');
       }
     } catch (err) {
-      setErrorMessage(err.response?.data?.message || 'Failed to request password reset code.');
+      setErrorMessage(err.response?.data?.message || 'Failed to request password reset link.');
     } finally {
       setLoading(false);
     }
@@ -52,7 +52,7 @@ const ForgotPasswordPage = () => {
           </div>
           <h2 className="text-2xl font-black text-slate-900">Reset Account Password</h2>
           <p className="text-xs text-slate-500">
-            Enter your registered email address or mobile number. We will send a secure 6-digit OTP code.
+            Enter your registered email address to receive a secure password reset link.
           </p>
         </div>
 
@@ -64,30 +64,45 @@ const ForgotPasswordPage = () => {
         )}
 
         {successMessage && (
-          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span>{successMessage}</span>
+          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold space-y-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>{successMessage}</span>
+            </div>
+
+            {/* Development Mode Direct Access Link */}
+            {devResetToken && (
+              <div className="mt-3 pt-3 border-t border-emerald-200">
+                <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded block mb-1.5 w-fit">
+                  DEVELOPMENT MODE DETECTED
+                </span>
+                <Link
+                  to={`/reset-password?token=${devResetToken}`}
+                  className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open Reset Password Form</span>
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
-        <form onSubmit={handleRequestOtp} className="space-y-4">
+        <form onSubmit={handleRequestReset} className="space-y-4">
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-1">
-              Email Address or Mobile Phone Number
+              Registered Email Address
             </label>
             <div className="relative">
               <input
-                type="text"
+                type="email"
                 required
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="name@example.com or 03001234567"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="buyer@example.com"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium text-slate-900"
               />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Supports both Buyer and Seller accounts across Pakistan.
-            </p>
           </div>
 
           <button
@@ -99,7 +114,7 @@ const ForgotPasswordPage = () => {
               <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
             ) : (
               <>
-                <span>Send Verification OTP</span>
+                <span>Send Reset Link</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}

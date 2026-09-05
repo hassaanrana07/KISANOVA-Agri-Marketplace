@@ -1,43 +1,44 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Sprout, Mail, Phone, ArrowRight, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Sprout, Mail, ArrowRight, AlertCircle, CheckCircle, ArrowLeft, ExternalLink } from 'lucide-react';
 import api from '../../services/api';
 
 const SellerForgotPasswordPage = () => {
-  const [identifier, setIdentifier] = useState('');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [devResetToken, setDevResetToken] = useState(null);
 
-  const navigate = useNavigate();
   const isPort5140 = typeof window !== 'undefined' && window.location.port === '5140';
   const loginUrl = isPort5140 ? '/login' : '/seller/login';
   const resetUrl = isPort5140 ? '/reset-password' : '/seller/reset-password';
 
-  const handleRequestOtp = async (e) => {
+  const handleRequestReset = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
+    setDevResetToken(null);
 
-    if (!identifier.trim()) {
-      setErrorMessage('Please enter your registered email address or mobile phone number.');
+    if (!email.trim()) {
+      setErrorMessage('Please enter your registered farm seller email address.');
       return;
     }
 
     setLoading(true);
     try {
       const res = await api.post('/auth/forgot-password', {
-        identifier: identifier.trim(),
+        email: email.trim(),
         portalRole: 'SELLER'
       });
 
       if (res.data.success) {
-        setSuccessMessage(res.data.message || 'Verification code dispatched successfully.');
-        setTimeout(() => {
-          navigate(`${resetUrl}?identifier=${encodeURIComponent(identifier.trim())}`);
-        }, 1500);
+        setSuccessMessage(res.data.message || 'If an account exists, a password reset link has been generated.');
+        if (res.data.isDevelopment && res.data.devResetToken) {
+          setDevResetToken(res.data.devResetToken);
+        }
       } else {
-        setErrorMessage(res.data.message || 'Failed to request verification code.');
+        setErrorMessage(res.data.message || 'Failed to request reset link.');
       }
     } catch (err) {
       setErrorMessage(
@@ -65,7 +66,7 @@ const SellerForgotPasswordPage = () => {
             </h2>
           </div>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Enter your registered farm email or phone number. We will dispatch a secure 6-digit verification code.
+            Enter your registered farm email address to generate a secure password reset authorization token.
           </p>
         </div>
 
@@ -78,34 +79,48 @@ const SellerForgotPasswordPage = () => {
         )}
 
         {successMessage && (
-          <div className="p-4 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-start gap-2.5">
-            <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <span>{successMessage}</span>
+          <div className="p-4 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold space-y-2.5">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-emerald-400" />
+              <span>{successMessage}</span>
+            </div>
+
+            {/* Development Mode Direct Access Link */}
+            {devResetToken && (
+              <div className="mt-3 pt-3 border-t border-emerald-500/30">
+                <span className="text-[10px] font-bold text-amber-300 bg-amber-900/50 px-2 py-0.5 rounded block mb-1.5 w-fit">
+                  DEVELOPMENT MODE DETECTED
+                </span>
+                <Link
+                  to={`${resetUrl}?token=${devResetToken}`}
+                  className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open Seller Reset Password Form</span>
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
         {/* Request Form */}
-        <form onSubmit={handleRequestOtp} className="space-y-4">
+        <form onSubmit={handleRequestReset} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1.5" htmlFor="seller-identifier">
-              Registered Email or Phone Number
+            <label className="block text-xs font-bold text-slate-300 mb-1.5" htmlFor="seller-email">
+              Registered Farm Email Address
             </label>
             <div className="relative">
               <input
-                id="seller-identifier"
-                type="text"
+                id="seller-email"
+                type="email"
                 required
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="e.g. farmer@domain.com or 03001234567"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="e.g. farmer@domain.com"
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-3 py-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-agro-500 font-medium transition-all"
               />
               <div className="absolute left-3.5 top-3.5 text-slate-400">
-                {identifier.includes('@') ? (
-                  <Mail className="w-4 h-4" />
-                ) : (
-                  <Phone className="w-4 h-4" />
-                )}
+                <Mail className="w-4 h-4" />
               </div>
             </div>
           </div>
@@ -115,7 +130,7 @@ const SellerForgotPasswordPage = () => {
             disabled={loading}
             className="w-full py-3 bg-agro-600 hover:bg-agro-500 disabled:bg-slate-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-agro-600/30 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
           >
-            <span>{loading ? 'Transmitting Code...' : 'Dispatch Verification Code'}</span>
+            <span>{loading ? 'Processing...' : 'Generate Reset Link'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>

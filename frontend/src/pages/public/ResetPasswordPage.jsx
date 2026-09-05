@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { Lock, CheckCircle, AlertCircle, ArrowRight, ArrowLeft, KeyRound, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Lock, CheckCircle, AlertCircle, ArrowRight, ArrowLeft, KeyRound, Eye, EyeOff } from 'lucide-react';
 import api from '../../services/api';
 
 const ResetPasswordPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [identifier, setIdentifier] = useState(searchParams.get('identifier') || '');
-  const [otp, setOtp] = useState('');
+  const [token, setToken] = useState(searchParams.get('token') || searchParams.get('resetToken') || '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -23,8 +22,8 @@ const ResetPasswordPage = () => {
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!identifier.trim() || !otp.trim()) {
-      setErrorMessage('Please provide both your registered identifier and 6-digit OTP code.');
+    if (!token.trim()) {
+      setErrorMessage('Password reset token is missing. Please request a new link.');
       return;
     }
 
@@ -41,23 +40,22 @@ const ResetPasswordPage = () => {
     setLoading(true);
     try {
       const res = await api.post('/auth/reset-password', {
-        identifier: identifier.trim(),
-        otp: otp.trim(),
+        token: token.trim(),
         newPassword
       });
 
       if (res.data.success) {
-        setSuccessMessage(res.data.message);
+        setSuccessMessage(res.data.message || 'Password reset successful!');
         setTimeout(() => {
           navigate('/login', {
             state: { message: 'Password reset successful! Please log in with your new password.' }
           });
-        }, 2000);
+        }, 1800);
       } else {
-        setErrorMessage(res.data.message);
+        setErrorMessage(res.data.message || 'Failed to reset password.');
       }
     } catch (err) {
-      setErrorMessage(err.response?.data?.message || 'Failed to reset password. Please check your OTP.');
+      setErrorMessage(err.response?.data?.message || 'Invalid or expired password reset token.');
     } finally {
       setLoading(false);
     }
@@ -73,7 +71,7 @@ const ResetPasswordPage = () => {
           </div>
           <h2 className="text-2xl font-black text-slate-900">Set New Password</h2>
           <p className="text-xs text-slate-500">
-            Enter the 6-digit OTP received on your device along with your new password.
+            Enter your secure token and your new account password below.
           </p>
         </div>
 
@@ -94,35 +92,20 @@ const ResetPasswordPage = () => {
         <form onSubmit={handleResetPassword} className="space-y-4">
           <div>
             <label className="text-xs font-bold text-slate-700 block mb-1">
-              Registered Email or Phone
-            </label>
-            <input
-              type="text"
-              required
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="name@example.com or 03001234567"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-900"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1">
-              6-Digit Numeric OTP Code
+              Reset Authorization Token
             </label>
             <div className="relative">
               <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="text"
                 required
-                maxLength="6"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                placeholder="123456"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono font-bold tracking-widest text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-center"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="Paste your 32-byte hex reset token here"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs font-mono font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1 text-center">Valid for 10 minutes from request</p>
+            <p className="text-[11px] text-slate-400 mt-1">Valid for 15 minutes from generation</p>
           </div>
 
           <div>
@@ -196,7 +179,7 @@ const ResetPasswordPage = () => {
             to="/forgot-password"
             className="font-bold text-slate-500 hover:text-emerald-700"
           >
-            Resend OTP
+            Request New Link
           </Link>
           <Link
             to="/login"

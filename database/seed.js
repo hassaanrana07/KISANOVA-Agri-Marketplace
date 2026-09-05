@@ -279,19 +279,19 @@ async function seed() {
     await conn.query(`INSERT INTO carts (buyer_id) VALUES (?)`, [buyerUser2.insertId]);
 
     // 6. Create Seed Multi-Seller Order (Demonstration of Multi-Seller Checkout)
-    // Order 1: Online Payment via JazzCash (PAID)
+    // Order 1: Cash on Delivery (COD - PAID upon delivery)
     const orderNum1 = 'KSN-' + Math.floor(100000 + Math.random() * 900000);
-    const txnRef1 = 'TXN-JC-' + Math.floor(100000 + Math.random() * 900000);
+    const txnRef1 = 'TXN-COD-' + Math.floor(100000 + Math.random() * 900000);
     const [parentOrder1] = await conn.query(
       `INSERT INTO orders (order_number, buyer_id, total_amount, delivery_name, delivery_phone, delivery_address, payment_method, online_provider, payment_status, transaction_reference, order_status)
-       VALUES (?, ?, 198.00, 'Zainab Ali', '+92 301 9012345', '742 Canal View Gardens, Sector B, Lahore', 'ONLINE', 'jazzcash', 'PAID', ?, 'PROCESSING')`,
+       VALUES (?, ?, 198.00, 'Zainab Ali', '+92 301 9012345', '742 Canal View Gardens, Sector B, Lahore', 'COD', NULL, 'PAID', ?, 'PROCESSING')`,
       [orderNum1, buyerUser1.insertId, txnRef1]
     );
 
     // Sub-order 1 for Seller 1 (Green Valley Farms)
     const [subOrder1] = await conn.query(
       `INSERT INTO seller_orders (order_id, seller_id, subtotal, payment_method, online_provider, payment_status, transaction_reference, status)
-       VALUES (?, ?, 84.00, 'ONLINE', 'jazzcash', 'PAID', ?, 'PROCESSING')`,
+       VALUES (?, ?, 84.00, 'COD', NULL, 'PAID', ?, 'PROCESSING')`,
       [parentOrder1.insertId, seller1.insertId, txnRef1]
     );
 
@@ -304,7 +304,7 @@ async function seed() {
     // Sub-order 2 for Seller 2 (Golden Harvest Organics)
     const [subOrder2] = await conn.query(
       `INSERT INTO seller_orders (order_id, seller_id, subtotal, payment_method, online_provider, payment_status, transaction_reference, status)
-       VALUES (?, ?, 114.00, 'ONLINE', 'jazzcash', 'PAID', ?, 'CONFIRMED')`,
+       VALUES (?, ?, 114.00, 'COD', NULL, 'PAID', ?, 'CONFIRMED')`,
       [parentOrder1.insertId, seller2.insertId, txnRef1]
     );
 
@@ -317,7 +317,7 @@ async function seed() {
     // Payment record for Order 1
     await conn.query(
       `INSERT INTO payments (order_id, payment_provider, transaction_reference, amount, currency, status, payment_method)
-       VALUES (?, 'jazzcash', ?, 198.00, 'USD', 'PAID', 'online')`,
+       VALUES (?, 'cod', ?, 198.00, 'USD', 'PAID', 'cod')`,
       [parentOrder1.insertId, txnRef1]
     );
 

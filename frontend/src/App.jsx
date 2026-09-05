@@ -51,7 +51,7 @@ import AdminUsersPage from './pages/admin/AdminUsersPage';
 
 // Route Guard for Buyer Protected routes
 const RequireBuyerAuth = ({ children }) => {
-  const { user, isBuyer, loading } = useAuth();
+  const { user, loading } = useAuth();
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -61,6 +61,38 @@ const RequireBuyerAuth = ({ children }) => {
   }
   if (!user) {
     return <Navigate to="/login" state={{ from: window.location.pathname }} replace />;
+  }
+  return children;
+};
+
+// Route Guard for Seller Protected routes
+const RequireSellerAuth = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-agro-600"></div>
+      </div>
+    );
+  }
+  if (!user || user.role !== 'SELLER') {
+    return <Navigate to="/seller/login" state={{ from: window.location.pathname }} replace />;
+  }
+  return children;
+};
+
+// Route Guard for Admin Protected routes
+const RequireAdminAuth = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-600"></div>
+      </div>
+    );
+  }
+  if (!user || user.role !== 'ADMIN') {
+    return <Navigate to="/admin/login" state={{ from: window.location.pathname }} replace />;
   }
   return children;
 };
@@ -153,7 +185,14 @@ function App() {
             <Route path="/seller/register" element={<SellerRegisterPage />} />
             <Route path="/seller/forgot-password" element={<SellerForgotPasswordPage />} />
             <Route path="/seller/reset-password" element={<SellerResetPasswordPage />} />
-            <Route path="/seller" element={<SellerLayout />}>
+            <Route
+              path="/seller"
+              element={
+                <RequireSellerAuth>
+                  <SellerLayout />
+                </RequireSellerAuth>
+              }
+            >
               <Route index element={<SellerDashboardPage />} />
               <Route path="products" element={<SellerProductsPage />} />
               <Route path="products/new" element={<SellerProductFormPage />} />
@@ -170,7 +209,14 @@ function App() {
             <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path="/admin/forgot-password" element={<AdminForgotPasswordPage />} />
             <Route path="/admin/reset-password" element={<AdminResetPasswordPage />} />
-            <Route path="/admin" element={<AdminLayout />}>
+            <Route
+              path="/admin"
+              element={
+                <RequireAdminAuth>
+                  <AdminLayout />
+                </RequireAdminAuth>
+              }
+            >
               <Route index element={<AdminDashboardPage />} />
               <Route path="sellers" element={<AdminSellersPage />} />
               <Route path="products" element={<AdminProductsPage />} />

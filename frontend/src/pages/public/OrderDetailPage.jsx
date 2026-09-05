@@ -169,11 +169,11 @@ const OrderDetailPage = () => {
 
       {/* Delivery & Payment Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Delivery Destination */}
+        {/* Delivery / Fulfillment Destination */}
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-3">
           <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
             <Truck className="w-4 h-4 text-agro-600" />
-            Delivery Destination
+            {order.payment_method === 'FARM_PICKUP' ? 'Fulfillment Information' : 'Delivery Destination'}
           </h3>
           <div className="text-xs text-slate-600 space-y-1.5 pt-1">
             <p className="font-bold text-slate-900 text-sm">{order.delivery_name}</p>
@@ -183,7 +183,13 @@ const OrderDetailPage = () => {
             </div>
             <div className="flex items-start gap-2">
               <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
-              <span>{order.delivery_address}</span>
+              <span>
+                {order.delivery_address || (
+                  <span className="text-amber-700 font-semibold">
+                    Farm Gate Self-Pickup (Collect produce at farmer location listed below)
+                  </span>
+                )}
+              </span>
             </div>
             {order.delivery_notes && (
               <p className="italic text-slate-500 pt-1">Notes: "{order.delivery_notes}"</p>
@@ -199,16 +205,20 @@ const OrderDetailPage = () => {
           </h3>
           <div className="text-xs text-slate-600 space-y-2 pt-1">
             <div className="flex justify-between">
-              <span className="text-slate-500">Gateway Provider:</span>
-              <strong className="text-slate-900 uppercase font-mono">{payment?.payment_provider || 'Direct'}</strong>
+              <span className="text-slate-500">Payment Method:</span>
+              <strong className="text-slate-900 font-bold">
+                {order.payment_method === 'FARM_PICKUP' ? 'Farm Gate Self-Pickup (Pay on Collection)' : 'Cash on Delivery (COD)'}
+              </strong>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Transaction Ref:</span>
-              <span className="font-mono text-slate-700 truncate max-w-[200px]">{payment?.transaction_reference}</span>
+              <span className="font-mono text-slate-700 truncate max-w-[200px]">
+                {payment?.transaction_reference || (order.payment_method === 'FARM_PICKUP' ? 'FARM-PICKUP' : 'COD-DIRECT')}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Payment Status:</span>
-              <strong className={order.payment_status === 'PAID' ? 'text-emerald-700' : 'text-amber-700'}>
+              <strong className={order.payment_status === 'PAID' ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'}>
                 {order.payment_status}
               </strong>
             </div>
@@ -249,6 +259,22 @@ const OrderDetailPage = () => {
                     <span>{so.seller_phone}</span>
                     <span>•</span>
                     <span className="truncate max-w-xs">{so.seller_address}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                      so.fulfillment_type === 'FARM_PICKUP' || so.fulfillment_type === 'PICKUP'
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {so.fulfillment_type === 'FARM_PICKUP' || so.fulfillment_type === 'PICKUP'
+                        ? '🚜 Farm Gate Self-Pickup'
+                        : '🚚 Farm Direct Delivery'}
+                    </span>
+                    {so.fulfillment_type !== 'FARM_PICKUP' && so.fulfillment_type !== 'PICKUP' && so.estimated_delivery_min_days && (
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        (Est. {so.estimated_delivery_min_days}-{so.estimated_delivery_max_days || so.estimated_delivery_min_days + 2} days)
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

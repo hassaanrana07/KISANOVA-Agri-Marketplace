@@ -1,6 +1,17 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.trim().length === 0) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL SECURITY ERROR: JWT_SECRET environment variable must be defined in production.');
+    }
+    return 'kisanova_dev_fallback_secret_key_2026_never_use_in_prod';
+  }
+  return secret.trim();
+};
+
 /**
  * Authentication Middleware
  * Validates JWT token and attaches user object to request
@@ -16,7 +27,8 @@ const requireAuth = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'kisanova_ultra_secure_jwt_secret_key_2026_farmers_market');
+    const secret = getJwtSecret();
+    const decoded = jwt.verify(token, secret);
 
     // Query fresh user data from database
     const [users] = await pool.query(
@@ -151,6 +163,7 @@ const requireBuyer = (req, res, next) => {
 };
 
 module.exports = {
+  getJwtSecret,
   requireAuth,
   requireRole,
   requireAdmin,
