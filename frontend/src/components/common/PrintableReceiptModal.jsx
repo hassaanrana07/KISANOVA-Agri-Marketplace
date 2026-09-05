@@ -78,45 +78,46 @@ const PrintableReceiptModal = ({ isOpen, onClose, receiptData }) => {
               </span>
               <p className="font-bold text-slate-900 text-sm">{receiptData.buyerName}</p>
               <p className="text-slate-600 mt-0.5">{receiptData.buyerPhone}</p>
-              <p className="text-slate-600 mt-0.5 leading-relaxed">{receiptData.deliveryAddress}</p>
+              {!isPickup ? (
+                <p className="text-slate-600 mt-0.5 leading-relaxed">{receiptData.deliveryAddress}</p>
+              ) : (
+                <p className="text-slate-600 mt-0.5 leading-relaxed italic font-medium text-amber-800">
+                  Self-collection in-person at cultivator farm fields (No shipping address required)
+                </p>
+              )}
 
               <div className="mt-2 pt-2 border-t border-slate-200 flex items-center gap-1.5 text-slate-700">
                 <Truck className="w-3.5 h-3.5 text-agro-600" />
                 <span>
                   Fulfillment:{' '}
                   <strong className="text-agro-800 uppercase">
-                    {isPickup ? 'Farm Gate Pickup' : 'Direct Delivery'}
+                    {isPickup ? 'Farm Gate Pickup' : 'Direct Courier Delivery'}
                   </strong>
                 </span>
               </div>
               {isPickup && receiptData.pickupInstructions && (
                 <p className="text-[11px] text-slate-500 mt-1 italic">
-                  Pickup: {receiptData.pickupInstructions}
+                  Pickup Instructions: {receiptData.pickupInstructions}
                 </p>
               )}
             </div>
 
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Payment & Settlement
+                Payment & Fulfillment
               </span>
               <p className="font-bold text-slate-900">
-                Method: <span className="text-agro-800 uppercase">{receiptData.paymentMethod}</span>
+                Payment Method: <span className="text-agro-800 uppercase">{isPickup ? 'Cash on Farm Pickup' : 'Cash on Delivery (COD)'}</span>
               </p>
-              {receiptData.onlineProvider && (
-                <p className="text-slate-600 mt-0.5">
-                  Gateway Provider: <strong className="uppercase">{receiptData.onlineProvider}</strong>
-                </p>
-              )}
-              <p className="text-slate-600 mt-0.5 font-mono text-[11px] truncate">
-                Ref: {receiptData.transactionReference}
+              <p className="text-slate-600 mt-0.5">
+                Order Status: <strong className="uppercase">{receiptData.orderStatus || 'PENDING'}</strong>
               </p>
               <div className="mt-2">
                 <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
                   isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                 }`}>
                   <CheckCircle className="w-3.5 h-3.5" />
-                  Status: {receiptData.paymentStatus}
+                  Payment Status: {receiptData.paymentStatus || 'UNPAID'}
                 </span>
               </div>
             </div>

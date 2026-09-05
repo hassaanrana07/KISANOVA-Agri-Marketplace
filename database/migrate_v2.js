@@ -32,7 +32,7 @@ async function migrate() {
       { name: 'estimated_delivery_max_days', type: 'INT DEFAULT 4' },
       { name: 'delivery_fee', type: 'DECIMAL(10, 2) DEFAULT 300.00' },
       { name: 'pickup_instructions', type: 'TEXT NULL' },
-      { name: 'payout_method', type: "ENUM('BANK_TRANSFER', 'EASYPAISA', 'JAZZCASH', 'SADAPAY') DEFAULT 'BANK_TRANSFER'" },
+      { name: 'payout_method', type: "ENUM('BANK_TRANSFER') DEFAULT 'BANK_TRANSFER'" },
       { name: 'payout_account_title', type: 'VARCHAR(150) NULL' },
       { name: 'payout_account_number', type: 'VARCHAR(100) NULL' },
       { name: 'payout_bank_name', type: 'VARCHAR(100) NULL' },

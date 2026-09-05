@@ -314,9 +314,9 @@ const HomePage = () => {
               <div className="w-12 h-12 rounded-xl bg-agro-600 text-white flex items-center justify-center font-black text-lg mb-4 shadow-lg shadow-agro-600/30">
                 3
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Secure Settlement & Dispatch</h3>
+              <h3 className="text-lg font-bold text-white mb-2">COD & Farm Gate Pickup</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Pay online via payment gateway or manual bank transfer with escrow protection. Chat with each farmer in real-time for dispatch photos and logistics.
+                Pay with Cash on Delivery (COD) upon physical shipment inspection, or collect directly from the farm fields with Farm Gate Self-Pickup. Chat with each farmer in real-time.
               </p>
             </div>
           </div>

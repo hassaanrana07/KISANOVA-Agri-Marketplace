@@ -506,6 +506,117 @@ async function runTests() {
     }
     assert(hitRateLimit, 'Rate limiter triggered HTTP 429 on excessive auth attempts');
 
+    // -------------------------------------------------------------
+    // TEST 13: Product Ownership Enforcement
+    // -------------------------------------------------------------
+    console.log('\n[13/17] Testing Product Ownership Enforcement...');
+    const seller1UserId = seller1Login.body.data?.user?.id || seller1Login.body.user?.id;
+    const [s1Rows] = await pool.query('SELECT id FROM sellers WHERE user_id = ?', [seller1UserId]);
+    const seller1Id = s1Rows[0]?.id;
+    
+    // Fetch a product owned by Seller 1
+    const [seller1Products] = await pool.query('SELECT id, title FROM products WHERE seller_id = ? LIMIT 1', [seller1Id]);
+    if (seller1Products.length > 0) {
+      const s1ProdId = seller1Products[0].id;
+      // Seller 2 attempts to edit Seller 1's product
+      const editAttempt = await makeRequest('PUT', `/api/seller/products/${s1ProdId}`, {
+        Authorization: `Bearer ${seller2Token}`
+      }, {
+        title: 'Hacked Title By Seller 2'
+      });
+      assert(editAttempt.status === 404 || editAttempt.status === 403, 'Seller 2 forbidden from modifying Seller 1 product (HTTP 404/403)');
+
+      // Seller 2 attempts to delete Seller 1's product
+      const deleteAttempt = await makeRequest('DELETE', `/api/seller/products/${s1ProdId}`, {
+        Authorization: `Bearer ${seller2Token}`
+      });
+      assert(deleteAttempt.status === 404 || deleteAttempt.status === 403, 'Seller 2 forbidden from deleting Seller 1 product (HTTP 404/403)');
+    }
+
+    // -------------------------------------------------------------
+    // TEST 14: Role-Based Authorization Enforcement
+    // -------------------------------------------------------------
+    console.log('\n[14/17] Testing Role-Based Route Protection...');
+    // Buyer accessing seller dashboard
+    const buyerToSeller = await makeRequest('GET', '/api/seller/orders', {
+      Authorization: `Bearer ${buyer1Token}`
+    });
+    assert(buyerToSeller.status === 403, 'Buyer forbidden from seller endpoints (HTTP 403)');
+
+    // Buyer accessing admin metrics
+    const buyerToAdmin = await makeRequest('GET', '/api/admin/metrics', {
+      Authorization: `Bearer ${buyer1Token}`
+    });
+    assert(buyerToAdmin.status === 403, 'Buyer forbidden from admin endpoints (HTTP 403)');
+
+    // Seller accessing admin metrics
+    const sellerToAdmin = await makeRequest('GET', '/api/admin/metrics', {
+      Authorization: `Bearer ${seller1Token}`
+    });
+    assert(sellerToAdmin.status === 403, 'Seller forbidden from admin endpoints (HTTP 403)');
+
+    // -------------------------------------------------------------
+    // TEST 15: Expired JWT Security
+    // -------------------------------------------------------------
+    console.log('\n[15/17] Testing Expired JWT Token Handling...');
+    const expiredToken = jwt.sign(
+      { id: buyer1Id, role: 'BUYER', email: 'buyer1@kisanova.com' },
+      getJwtSecret(),
+      { expiresIn: '-1s' }
+    );
+    const expiredRes = await makeRequest('GET', '/api/auth/me', {
+      Authorization: `Bearer ${expiredToken}`
+    });
+    assert(expiredRes.status === 401, 'Expired JWT token rejected with HTTP 401');
+
+    // -------------------------------------------------------------
+    // TEST 16: Purged Obsolete Payment Endpoints Return 404
+    // -------------------------------------------------------------
+    console.log('\n[16/17] Testing Purged Payment Endpoints (Zero Online Gateways)...');
+    const webhookRes = await makeRequest('POST', '/api/payments/webhook/jazzcash', {
+      Authorization: `Bearer ${buyer1Token}`
+    }, { data: 'test' });
+    assert(webhookRes.status === 404, 'Decommissioned webhook endpoint returns 404');
+
+    const verifyOnlineRes = await makeRequest('POST', '/api/payments/verify-online', {
+      Authorization: `Bearer ${buyer1Token}`
+    }, { orderId: 1 });
+    assert(verifyOnlineRes.status === 404, 'Decommissioned verify-online endpoint returns 404');
+
+    const sandboxRes = await makeRequest('POST', '/api/payments/process-sandbox', {
+      Authorization: `Bearer ${buyer1Token}`
+    }, { orderId: 1 });
+    assert(sandboxRes.status === 404, 'Decommissioned process-sandbox endpoint returns 404');
+
+    const adminVerifyRes = await makeRequest('PUT', '/api/admin/payments/1/verify', {
+      Authorization: `Bearer ${seller1Token}`
+    }, { isApproved: true });
+    assert(adminVerifyRes.status === 404 || adminVerifyRes.status === 403, 'Decommissioned admin bank verify returns 404/403');
+
+    // -------------------------------------------------------------
+    // TEST 17: Notification Ownership Scoping
+    // -------------------------------------------------------------
+    console.log('\n[17/17] Testing Notification Ownership Authorization...');
+    // Seed a notification for Buyer 1
+    const [notifInsert] = await pool.query(
+      `INSERT INTO notifications (user_id, type, title, message, is_read)
+       VALUES (?, 'SYSTEM', 'Test Security Notice', 'Buyer 1 private notification', FALSE)`,
+      [buyer1Id]
+    );
+    const notifId = notifInsert.insertId;
+
+    // Buyer 2 attempts to delete Buyer 1's notification
+    const unauthorizedDelete = await makeRequest('DELETE', `/api/notifications/${notifId}`, {
+      Authorization: `Bearer ${buyer2Token}`
+    });
+    assert(unauthorizedDelete.status === 404, 'Buyer 2 forbidden from deleting Buyer 1 notification (HTTP 404)');
+
+    // Buyer 1 successfully deletes own notification
+    const authorizedDelete = await makeRequest('DELETE', `/api/notifications/${notifId}`, {
+      Authorization: `Bearer ${buyer1Token}`
+    });
+    assert(authorizedDelete.status === 200, 'Buyer 1 authorized to delete own notification (HTTP 200)');
+
     console.log('\n===============================================================');
     console.log(`🏁 VERIFICATION SUITE COMPLETE: ${passed} PASSED, ${failed} FAILED`);
     console.log('===============================================================');

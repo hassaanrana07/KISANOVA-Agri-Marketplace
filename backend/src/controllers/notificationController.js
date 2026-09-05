@@ -79,8 +79,36 @@ const markAllAsRead = async (req, res) => {
   }
 };
 
+/**
+ * Delete a single notification
+ */
+const deleteNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const [result] = await pool.query(
+      'DELETE FROM notifications WHERE id = ? AND user_id = ?',
+      [id, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Notification not found or access denied.' });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Notification deleted.'
+    });
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete notification.' });
+  }
+};
+
 module.exports = {
   getNotifications,
   markAsRead,
-  markAllAsRead
+  markAllAsRead,
+  deleteNotification
 };

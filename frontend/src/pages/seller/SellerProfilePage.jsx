@@ -240,7 +240,7 @@ const SellerProfilePage = () => {
           { id: 'identity', label: isRTL ? '1. فارم شناخت اور رابطہ' : '1. Farm Identity', icon: Building },
           { id: 'location', label: isRTL ? '2. مقام اور باؤنڈری نقشہ' : '2. Location & Boundary GIS', icon: Compass },
           { id: 'fulfillment', label: isRTL ? '3. ترسیلی طریقہ کار' : '3. Fulfillment Settings', icon: Truck },
-          { id: 'payout', label: isRTL ? '4. بینک اور اکاؤنٹ' : '4. Payout & Banking', icon: CreditCard }
+          { id: 'payout', label: isRTL ? '4. بینک اور سیٹلمنٹ' : '4. Bank & Settlement', icon: CreditCard }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -496,28 +496,25 @@ const SellerProfilePage = () => {
         </div>
       )}
 
-      {/* Tab 4: Payout & Banking */}
+      {/* Tab 4: Bank & Settlement */}
       {activeTab === 'payout' && (
         <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6 animate-fadeIn">
           <div className="border-b border-slate-100 pb-4">
-            <h3 className="font-bold text-sm text-slate-900">Seller Payout & Settlement Routing</h3>
+            <h3 className="font-bold text-sm text-slate-900">Seller Bank & Settlement Routing</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Configure your authorized bank account or mobile wallet for receiving harvest sales settlements.
+              Configure your authorized bank account for internal accounting settlements.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Payout Channel *</label>
+              <label className="text-xs font-bold text-slate-700 block mb-1">Settlement Account Type *</label>
               <select
                 value={payoutMethod}
                 onChange={(e) => setPayoutMethod(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-agro-500"
               >
-                <option value="BANK_TRANSFER">Direct Bank / IBAN Wire Transfer</option>
-                <option value="EASYPAISA">Easypaisa Mobile Merchant Wallet</option>
-                <option value="JAZZCASH">JazzCash Mobile Account</option>
-                <option value="SADAPAY">SadaPay Business Account</option>
+                <option value="BANK_TRANSFER">Direct Bank / IBAN Settlement Account</option>
               </select>
             </div>
 
@@ -535,14 +532,14 @@ const SellerProfilePage = () => {
 
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1">
-                IBAN / Account / Wallet Number *
+                IBAN / Account Number *
               </label>
               <input
                 type="text"
                 required
                 value={payoutAccountNumber}
                 onChange={(e) => setPayoutAccountNumber(e.target.value)}
-                placeholder="PK36HABB00012345678901 or 03001234567"
+                placeholder="PK36HABB00012345678901"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-agro-500"
               />
             </div>
@@ -564,8 +561,8 @@ const SellerProfilePage = () => {
             <span>
               <strong>{isRTL ? 'کیش آن ڈیلیوری اور سیٹلمنٹ نوٹ:' : 'Settlement Note:'}</strong>{' '}
               {isRTL
-                ? 'کسانووا کیش آن ڈیلیوری (COD) ماڈل پر کام کرتا ہے۔ بینک یا والٹ اکاؤنٹ کا اندراج مستقبل کے کارپوریٹ بلک سودوں اور پلیٹ فارم سیٹلمنٹ کے لیے محفوظ رکھا جاتا ہے۔'
-                : 'Kisanova operates on a Cash on Delivery (COD) physical trade model. Payout accounts are maintained for high-volume enterprise bulk agreements and merchant platform settlements.'}
+                ? 'کسانووا کیش آن ڈیلیوری (COD) اور فارم پک اپ ماڈل پر کام کرتا ہے۔ بینک اکاؤنٹ کا اندراج انٹرنل لیجر ریکارڈ اور پلیٹ فارم سیٹلمنٹ کے لیے استعمال ہوتا ہے۔'
+                : 'Kisanova operates on a Cash on Delivery (COD) and Farm Gate Pickup model. Bank details are maintained for internal ledger records and platform accounting settlements.'}
             </span>
           </div>
         </div>

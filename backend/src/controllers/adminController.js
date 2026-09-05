@@ -1,5 +1,4 @@
 const pool = require('../config/db');
-const paymentService = require('../services/paymentService');
 
 /**
  * Admin Dashboard Overview Metrics
@@ -375,40 +374,6 @@ const getAdminOrders = async (req, res) => {
   }
 };
 
-/**
- * Verify / Settle Manual Bank Transfer Payment
- */
-const verifyBankTransfer = async (req, res) => {
-  try {
-    const { paymentId } = req.params;
-    const { isApproved, adminNotes } = req.body;
-
-    if (isApproved === undefined) {
-      return res.status(400).json({
-        success: false,
-        message: 'isApproved boolean is required.'
-      });
-    }
-
-    const result = await paymentService.adminVerifyBankTransfer({
-      paymentId: parseInt(paymentId),
-      isApproved: Boolean(isApproved),
-      adminNotes
-    });
-
-    return res.json({
-      success: true,
-      message: result.message,
-      data: result
-    });
-  } catch (error) {
-    console.error('Error verifying bank transfer:', error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to verify bank transfer.'
-    });
-  }
-};
 
 /**
  * Get Marketplace Users (Buyers & Sellers)
@@ -500,7 +465,6 @@ module.exports = {
   getAdminProducts,
   updateProductStatus,
   getAdminOrders,
-  verifyBankTransfer,
   getUsers,
   updateUserStatus
 };

@@ -461,7 +461,9 @@ const SellerOrderDetailPage = () => {
           deliveryAddress: order.delivery_address,
           paymentMethod: isPickupOrder ? 'FARM_PICKUP' : 'COD',
           paymentStatus: order.payment_status || 'UNPAID',
-          transactionReference: isPickupOrder ? 'FARM-PICKUP-COLLECTION' : 'COD-CASH-SETTLEMENT',
+          orderStatus: order.status || 'PENDING',
+          fulfillmentMethod: isPickupOrder ? 'FARM_PICKUP' : 'DELIVERY',
+          pickupInstructions: order.pickup_instructions,
           totalAmount: order.subtotal,
           items: order.items || []
         }}

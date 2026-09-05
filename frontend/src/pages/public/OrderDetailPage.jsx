@@ -89,9 +89,10 @@ const OrderDetailPage = () => {
       buyerPhone: order.delivery_phone,
       deliveryAddress: order.delivery_address,
       paymentMethod: order.payment_method || 'COD',
-      onlineProvider: order.online_provider,
       paymentStatus: order.payment_status,
-      transactionReference: order.transaction_reference || 'N/A',
+      orderStatus: order.order_status,
+      fulfillmentMethod: order.fulfillment_method,
+      pickupInstructions: order.pickup_instructions,
       totalAmount: order.total_amount,
       items: allItems
     });

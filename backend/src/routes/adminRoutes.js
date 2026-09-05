@@ -7,7 +7,6 @@ const {
   getAdminProducts,
   updateProductStatus,
   getAdminOrders,
-  verifyBankTransfer,
   getUsers,
   updateUserStatus
 } = require('../controllers/adminController');
@@ -26,9 +25,8 @@ router.put('/sellers/:id/approval', updateSellerApproval);
 router.get('/products', getAdminProducts);
 router.put('/products/:id/status', updateProductStatus);
 
-// Order & Payment management
+// Order management (COD & Farm Gate Pickup)
 router.get('/orders', getAdminOrders);
-router.put('/payments/:paymentId/verify', verifyBankTransfer);
 
 // User management
 router.get('/users', getUsers);

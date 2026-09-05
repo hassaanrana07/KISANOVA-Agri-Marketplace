@@ -338,9 +338,16 @@ const checkout = async (req, res) => {
   } catch (error) {
     await connection.rollback();
     console.error('Checkout error:', error);
+
+    // Distinguish client-facing inventory validation errors from internal SQL/system errors
+    const isInventoryError = error.message && error.message.includes('Insufficient');
+    const safeMessage = isInventoryError
+      ? error.message
+      : 'An error occurred while processing your checkout. Please verify your order and try again.';
+
     return res.status(400).json({
       success: false,
-      message: error.message || 'Checkout processing failed.'
+      message: safeMessage
     });
   } finally {
     connection.release();

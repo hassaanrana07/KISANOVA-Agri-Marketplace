@@ -341,11 +341,12 @@ async function seed() {
       [subOrder3.insertId, insertedProductIds[5]]
     );
 
-    // Payment record for Order 2 (Manual Bank Transfer pending admin verification)
+    // Payment record for Order 2 (Cash on Delivery pending rider collection)
+    const txnRef2 = 'COD-' + Math.floor(100000 + Math.random() * 900000);
     await conn.query(
-      `INSERT INTO payments (order_id, payment_provider, transaction_reference, amount, currency, status, payment_method, proof_url, admin_notes)
-       VALUES (?, 'bank_transfer', ?, 52.00, 'USD', 'PENDING', 'bank_transfer', 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80', 'Awaiting bank clearance verification by Admin')`,
-      [parentOrder2.insertId, 'IBAN-WIRE-889412']
+      `INSERT INTO payments (order_id, payment_provider, transaction_reference, amount, currency, status, payment_method, admin_notes)
+       VALUES (?, 'cod', ?, 52.00, 'PKR', 'PENDING', 'COD', 'Cash on Delivery - to be collected by courier upon arrival')`,
+      [parentOrder2.insertId, txnRef2]
     );
 
     console.log('✅ Created multi-seller demonstration orders with payment records');

@@ -310,7 +310,7 @@ const updateProduct = async (req, res) => {
            available_quantity = COALESCE(?, available_quantity),
            status = ?,
            updated_at = NOW()
-       WHERE id = ?`,
+       WHERE id = ? AND seller_id = ?`,
       [
         title || null,
         category || null,
@@ -320,7 +320,8 @@ const updateProduct = async (req, res) => {
         unit || null,
         available_quantity !== undefined ? parseFloat(available_quantity) : null,
         updatedStatus,
-        id
+        id,
+        seller.id
       ]
     );
 
@@ -359,6 +360,19 @@ const deleteProduct = async (req, res) => {
     const seller = await getSellerFromUser(req.user.id);
     if (!seller) {
       return res.status(404).json({ success: false, message: 'Seller profile not found.' });
+    }
+
+    // Explicit ownership check
+    const [existing] = await pool.query(
+      'SELECT id, status FROM products WHERE id = ? AND seller_id = ?',
+      [id, seller.id]
+    );
+
+    if (existing.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found or access denied.'
+      });
     }
 
     // Set to INACTIVE or delete if no order references

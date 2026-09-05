@@ -71,7 +71,7 @@ CREATE TABLE sellers (
     estimated_delivery_max_days INT DEFAULT 4,
     delivery_fee DECIMAL(10, 2) DEFAULT 300.00,
     pickup_instructions TEXT NULL,
-    payout_method ENUM('BANK_TRANSFER', 'EASYPAISA', 'JAZZCASH', 'SADAPAY') DEFAULT 'BANK_TRANSFER',
+    payout_method ENUM('BANK_TRANSFER') DEFAULT 'BANK_TRANSFER',
     payout_account_title VARCHAR(150) NULL,
     payout_account_number VARCHAR(100) NULL,
     payout_bank_name VARCHAR(100) NULL,
@@ -272,7 +272,7 @@ CREATE TABLE payments (
     amount_remaining DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     status ENUM('PENDING', 'PARTIALLY_PAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
     payment_method VARCHAR(50) NOT NULL DEFAULT 'COD', -- 'COD', 'FARM_PICKUP'
-    proof_url VARCHAR(500) NULL, -- for manual bank transfer proof upload
+    proof_url VARCHAR(500) NULL, -- for physical COD receipt / delivery slip upload
     webhook_payload JSON NULL,
     refund_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     refund_reason TEXT NULL,
