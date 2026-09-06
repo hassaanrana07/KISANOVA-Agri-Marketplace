@@ -25,6 +25,36 @@ if (isCloudinaryConfigured) {
   console.log('📁 Using local disk storage fallback for media uploads (/uploads)');
 }
 
+const validateMediaContent = (filePath) => {
+  if (!fs.existsSync(filePath)) return;
+  const buffer = Buffer.alloc(16);
+  const fd = fs.openSync(filePath, 'r');
+  const bytesRead = fs.readSync(fd, buffer, 0, 16, 0);
+  fs.closeSync(fd);
+
+  if (bytesRead >= 2) {
+    // Windows PE/EXE/DLL: MZ (0x4D, 0x5A)
+    if (buffer[0] === 0x4D && buffer[1] === 0x5A) {
+      if (fs.existsSync(filePath)) { try { fs.unlinkSync(filePath); } catch (e) {} }
+      throw new Error('Executable binary files (.exe) are strictly prohibited.');
+    }
+  }
+
+  if (bytesRead >= 4) {
+    // Linux ELF: 0x7F, 'E', 'L', 'F'
+    if (buffer[0] === 0x7F && buffer[1] === 0x45 && buffer[2] === 0x4C && buffer[3] === 0x46) {
+      if (fs.existsSync(filePath)) { try { fs.unlinkSync(filePath); } catch (e) {} }
+      throw new Error('Executable binary files (ELF) are strictly prohibited.');
+    }
+  }
+
+  const headerStr = buffer.toString('utf8', 0, Math.min(bytesRead, 8)).toLowerCase();
+  if (headerStr.startsWith('<?php') || headerStr.startsWith('#!/') || headerStr.startsWith('<script')) {
+    if (fs.existsSync(filePath)) { try { fs.unlinkSync(filePath); } catch (e) {} }
+    throw new Error('Script execution payloads are strictly prohibited.');
+  }
+};
+
 /**
  * Upload a local file to Cloudinary or serve from local static path
  * @param {string} filePath Local path to temporary/uploaded file
@@ -32,6 +62,7 @@ if (isCloudinaryConfigured) {
  * @returns {Promise<{ url: string, public_id?: string, format?: string }>}
  */
 const uploadMedia = async (filePath, options = {}) => {
+  validateMediaContent(filePath);
   if (isCloudinaryConfigured) {
     try {
       const result = await cloudinary.uploader.upload(filePath, {
@@ -50,11 +81,15 @@ const uploadMedia = async (filePath, options = {}) => {
         format: result.format
       };
     } catch (err) {
-      console.error('Cloudinary upload failed, falling back to local file:', err.message);
+      console.error('Cloudinary upload failed:', err.message);
+      // In production or when Cloudinary is configured, throw clear error to avoid silent data loss on ephemeral disk
+      if (process.env.NODE_ENV === 'production' || isCloudinaryConfigured) {
+        throw new Error(`Media storage upload failed: ${err.message}`);
+      }
     }
   }
 
-  // Fallback to local file URL
+  // Fallback to local file URL (Development only when Cloudinary is not configured)
   const filename = path.basename(filePath);
   return {
     url: `/uploads/${filename}`,

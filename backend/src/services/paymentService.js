@@ -110,6 +110,7 @@ class PaymentService {
       pickupInstructions: order.pickup_instructions || null,
       paymentMethod: order.payment_method || 'COD',
       paymentStatus: order.payment_status,
+      subtotal: Math.max(0, parseFloat(order.total_amount) - parseFloat(order.delivery_fee || 0)),
       totalAmount: parseFloat(order.total_amount),
       amountPaid: parseFloat(order.amount_paid || 0),
       amountRemaining: parseFloat(order.amount_remaining || order.total_amount),

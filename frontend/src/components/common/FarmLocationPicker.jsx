@@ -581,7 +581,7 @@ const FarmLocationPicker = ({
             <div className="space-y-2">
               {sampleLocalities.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 mr-1">Chaks / UCs:</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 mr-1">Sample Localities:</span>
                   {sampleLocalities.map((loc) => (
                     <button
                       key={loc}
@@ -598,6 +598,9 @@ const FarmLocationPicker = ({
                   ))}
                 </div>
               )}
+              <p className="text-[10px] text-slate-400 italic">
+                * Sample reference localities for this tehsil. You can select one or enter your exact village/chak/mauza below.
+              </p>
 
               <div className="relative max-w-sm">
                 <Search className={`w-3.5 h-3.5 text-slate-400 absolute ${isRTL ? 'right-3' : 'left-3'} top-2.5`} />
