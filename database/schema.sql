@@ -40,10 +40,15 @@ CREATE TABLE users (
     status ENUM('ACTIVE', 'SUSPENDED', 'PENDING') NOT NULL DEFAULT 'ACTIVE',
     avatar_url VARCHAR(500) NULL,
     phone VARCHAR(30) NULL,
+    email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    email_verified_at DATETIME NULL,
+    email_verification_token_hash VARCHAR(64) NULL,
+    email_verification_expires_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_user_email (email),
-    INDEX idx_user_role (role)
+    INDEX idx_user_role (role),
+    INDEX idx_user_email_verif_hash (email_verification_token_hash)
 ) ENGINE=InnoDB;
 
 -- -------------------------------------------------------

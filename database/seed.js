@@ -46,38 +46,38 @@ async function seed() {
 
     // 2. Insert Users
     const [adminUser] = await conn.query(
-      `INSERT INTO users (name, email, password_hash, role, status, phone) 
-       VALUES (?, ?, ?, 'ADMIN', 'ACTIVE', '+1 800-555-0199')`,
+      `INSERT INTO users (name, email, password_hash, role, status, phone, email_verified, email_verified_at) 
+       VALUES (?, ?, ?, 'ADMIN', 'ACTIVE', '+1 800-555-0199', TRUE, NOW())`,
       ['Marketplace Administrator', 'admin@kisanova.com', adminPass]
     );
 
     const [sellerUser1] = await conn.query(
-      `INSERT INTO users (name, email, password_hash, role, status, phone) 
-       VALUES (?, ?, ?, 'SELLER', 'ACTIVE', '+1 555-234-5678')`,
+      `INSERT INTO users (name, email, password_hash, role, status, phone, email_verified, email_verified_at) 
+       VALUES (?, ?, ?, 'SELLER', 'ACTIVE', '+1 555-234-5678', TRUE, NOW())`,
       ['Ramesh Patel', 'seller1@kisanova.com', sellerPass]
     );
 
     const [sellerUser2] = await conn.query(
-      `INSERT INTO users (name, email, password_hash, role, status, phone) 
-       VALUES (?, ?, ?, 'SELLER', 'ACTIVE', '+1 555-876-5432')`,
+      `INSERT INTO users (name, email, password_hash, role, status, phone, email_verified, email_verified_at) 
+       VALUES (?, ?, ?, 'SELLER', 'ACTIVE', '+1 555-876-5432', TRUE, NOW())`,
       ['Ananya Sharma', 'seller2@kisanova.com', sellerPass]
     );
 
     const [sellerUser3] = await conn.query(
-      `INSERT INTO users (name, email, password_hash, role, status, phone) 
-       VALUES (?, ?, ?, 'SELLER', 'ACTIVE', '+1 555-345-6789')`,
+      `INSERT INTO users (name, email, password_hash, role, status, phone, email_verified, email_verified_at) 
+       VALUES (?, ?, ?, 'SELLER', 'ACTIVE', '+1 555-345-6789', TRUE, NOW())`,
       ['Tariq Mahmood', 'seller3@kisanova.com', sellerPass]
     );
 
     const [buyerUser1] = await conn.query(
-      `INSERT INTO users (name, email, password_hash, role, status, phone) 
-       VALUES (?, ?, ?, 'BUYER', 'ACTIVE', '+1 555-901-2345')`,
+      `INSERT INTO users (name, email, password_hash, role, status, phone, email_verified, email_verified_at) 
+       VALUES (?, ?, ?, 'BUYER', 'ACTIVE', '+1 555-901-2345', TRUE, NOW())`,
       ['Zainab Ali', 'buyer1@kisanova.com', buyerPass]
     );
 
     const [buyerUser2] = await conn.query(
-      `INSERT INTO users (name, email, password_hash, role, status, phone) 
-       VALUES (?, ?, ?, 'BUYER', 'ACTIVE', '+1 555-678-9012')`,
+      `INSERT INTO users (name, email, password_hash, role, status, phone, email_verified, email_verified_at) 
+       VALUES (?, ?, ?, 'BUYER', 'ACTIVE', '+1 555-678-9012', TRUE, NOW())`,
       ['David Miller', 'buyer2@kisanova.com', buyerPass]
     );
 

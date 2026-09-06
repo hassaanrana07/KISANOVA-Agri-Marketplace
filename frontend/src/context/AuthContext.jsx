@@ -163,12 +163,16 @@ export const AuthProvider = ({ children }) => {
 
         return { success: true, user: loggedUser, seller: loggedSeller };
       }
-      return { success: false, message: res.data.message };
+      return { success: false, message: res.data.message, code: res.data.code };
     } catch (err) {
+      const errData = err.response?.data;
       return {
         success: false,
-        message: err.response?.data?.message || 'Login failed. Please verify credentials.',
-        isPending: err.response?.data?.message?.toLowerCase().includes('under verification')
+        message: errData?.message || 'Login failed. Please verify credentials.',
+        code: errData?.code,
+        isPending: errData?.message?.toLowerCase().includes('under verification') || errData?.code === 'PENDING_APPROVAL',
+        isUnverified: errData?.code === 'EMAIL_NOT_VERIFIED',
+        email: errData?.email
       };
     }
   };
@@ -180,13 +184,14 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await api.post('/auth/register', registrationData);
       if (res.data.success) {
-        const { token, user: regUser, seller: regSeller, reviewNotice } = res.data.data;
+        const { token, user: regUser, seller: regSeller, reviewNotice, requiresVerification } = res.data.data;
 
-        // If seller registration, backend returns reviewNotice and NO token (pending approval)
-        if (registrationData.role === 'SELLER' || regUser.role === 'SELLER') {
+        // If seller registration, backend returns reviewNotice and NO token (pending approval + email verification)
+        if (registrationData.role === 'SELLER' || regUser?.role === 'SELLER') {
           return {
             success: true,
             isPending: true,
+            requiresVerification: requiresVerification !== false,
             reviewNotice: reviewNotice || 'Your seller account has been submitted and is under review.',
             user: regUser,
             seller: regSeller
@@ -200,13 +205,40 @@ export const AuthProvider = ({ children }) => {
           setBuyerUser(regUser);
         }
 
-        return { success: true, user: regUser, message: res.data.message };
+        return {
+          success: true,
+          user: regUser,
+          requiresVerification: requiresVerification !== false,
+          message: res.data.message
+        };
       }
       return { success: false, message: res.data.message };
     } catch (err) {
       return {
         success: false,
         message: err.response?.data?.message || 'Registration failed.'
+      };
+    }
+  };
+
+  /**
+   * Resend Email Verification
+   */
+  const resendVerification = async (email) => {
+    try {
+      const res = await api.post('/auth/resend-verification', { email });
+      return {
+        success: res.data.success,
+        message: res.data.message,
+        cooldownRemainingSeconds: res.data.data?.cooldownRemainingSeconds
+      };
+    } catch (err) {
+      const errData = err.response?.data;
+      return {
+        success: false,
+        message: errData?.message || 'Failed to resend verification email.',
+        code: errData?.code,
+        cooldownRemainingSeconds: errData?.data?.cooldownRemainingSeconds
       };
     }
   };
@@ -266,6 +298,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         register,
+        resendVerification,
         logout,
         updateUser,
         updateSeller

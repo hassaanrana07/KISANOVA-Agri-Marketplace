@@ -69,8 +69,24 @@ const passwordResetLimiter = createRateLimiter({
   message: 'Too many password reset requests. Please wait a few minutes before trying again.'
 });
 
+// 1 resend verification request per 60 seconds
+const resendVerificationLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 1,
+  message: 'Please wait at least 60 seconds before requesting another verification email.'
+});
+
+// 10 email verification attempts per 15 minutes
+const verifyEmailLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many verification attempts. Please try again later.'
+});
+
 module.exports = {
   createRateLimiter,
   authLimiter,
-  passwordResetLimiter
+  passwordResetLimiter,
+  resendVerificationLimiter,
+  verifyEmailLimiter
 };

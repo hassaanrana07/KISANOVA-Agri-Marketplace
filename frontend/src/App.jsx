@@ -22,6 +22,7 @@ import LoginPage from './pages/public/LoginPage';
 import RegisterPage from './pages/public/RegisterPage';
 import ForgotPasswordPage from './pages/public/ForgotPasswordPage';
 import ResetPasswordPage from './pages/public/ResetPasswordPage';
+import VerifyEmailPage from './pages/public/VerifyEmailPage';
 import PrivacyPolicyPage from './pages/public/PrivacyPolicyPage';
 import TermsConditionsPage from './pages/public/TermsConditionsPage';
 import FaqPage from './pages/public/FaqPage';
@@ -117,6 +118,7 @@ function App() {
                 <Route path="/register" element={<SellerRegisterPage />} />
                 <Route path="/forgot-password" element={<SellerForgotPasswordPage />} />
                 <Route path="/reset-password" element={<SellerResetPasswordPage />} />
+                <Route path="/verify-email" element={<VerifyEmailPage />} />
               </>
             )}
 
@@ -171,6 +173,7 @@ function App() {
               />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
@@ -183,6 +186,7 @@ function App() {
             {/* ==================================================== */}
             <Route path="/seller/login" element={<SellerLoginPage />} />
             <Route path="/seller/register" element={<SellerRegisterPage />} />
+            <Route path="/seller/verify-email" element={<VerifyEmailPage />} />
             <Route path="/seller/forgot-password" element={<SellerForgotPasswordPage />} />
             <Route path="/seller/reset-password" element={<SellerResetPasswordPage />} />
             <Route

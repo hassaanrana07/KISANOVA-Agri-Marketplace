@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { getJwtSecret } = require('../middleware/auth');
+const emailService = require('../services/emailService');
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -63,11 +64,13 @@ const register = async (req, res) => {
     await connection.beginTransaction();
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const rawVerificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenHash = crypto.createHash('sha256').update(rawVerificationToken).digest('hex');
 
     const [userResult] = await connection.query(
-      `INSERT INTO users (name, email, password_hash, role, status, phone)
-       VALUES (?, ?, ?, ?, 'ACTIVE', ?)`,
-      [name, email, passwordHash, userRole, phone || null]
+      `INSERT INTO users (name, email, password_hash, role, status, phone, email_verified, email_verification_token_hash, email_verification_expires_at)
+       VALUES (?, ?, ?, ?, 'ACTIVE', ?, FALSE, ?, DATE_ADD(NOW(), INTERVAL 30 MINUTE))`,
+      [name, email, passwordHash, userRole, phone || null, verificationTokenHash]
     );
 
     const userId = userResult.insertId;
@@ -137,33 +140,50 @@ const register = async (req, res) => {
 
     await connection.commit();
 
-    const userObj = { id: userId, name, email, role: userRole, status: 'ACTIVE', phone };
+    // Dispatch verification email via Brevo
+    const emailResult = await emailService.sendVerificationEmail({
+      toEmail: email,
+      toName: name,
+      rawToken: rawVerificationToken,
+      role: userRole
+    });
+
+    const userObj = { id: userId, name, email, role: userRole, status: 'ACTIVE', phone, email_verified: false };
 
     if (userRole === 'SELLER') {
-      // Unverified seller does not get auto-login token; must wait for admin approval
-      return res.status(201).json({
+      const response = {
         success: true,
-        message: 'Your seller account has been submitted successfully and is currently under review. You will be able to access the seller portal after your account has been verified by an administrator.',
+        message: 'Your seller account has been submitted and is under review. Please check your email to verify your email address.',
         data: {
           user: userObj,
           seller: sellerProfile,
-          status: 'PENDING'
+          status: 'PENDING',
+          requiresVerification: true,
+          emailVerificationSent: emailResult.success
         }
-      });
+      };
+      if (process.env.NODE_ENV !== 'production') {
+        response.devVerificationToken = rawVerificationToken;
+      }
+      return res.status(201).json(response);
     }
 
-    // Buyer receives token for immediate shopping
-    const token = generateToken(userObj);
-
-    return res.status(201).json({
+    // Buyer receives confirmation. Login token is NOT granted until email verification is complete.
+    const buyerResponse = {
       success: true,
-      message: 'Buyer account registered successfully.',
+      message: 'Account registered successfully. We have sent a verification link to your email address. Please verify your email before logging in.',
       data: {
-        token,
         user: userObj,
-        seller: null
+        seller: null,
+        requiresVerification: true,
+        emailVerificationSent: emailResult.success
       }
-    });
+    };
+    if (process.env.NODE_ENV !== 'production') {
+      buyerResponse.devVerificationToken = rawVerificationToken;
+    }
+
+    return res.status(201).json(buyerResponse);
   } catch (error) {
     await connection.rollback();
     console.error('Registration error:', error);
@@ -193,7 +213,7 @@ const login = async (req, res) => {
     }
 
     const [users] = await pool.query(
-      'SELECT id, name, email, password_hash, role, status, phone, avatar_url FROM users WHERE email = ?',
+      'SELECT id, name, email, password_hash, role, status, phone, avatar_url, email_verified FROM users WHERE email = ?',
       [email]
     );
 
@@ -230,6 +250,16 @@ const login = async (req, res) => {
       });
     }
 
+    // Mandatory Email Verification for non-admin accounts
+    if (user.role !== 'ADMIN' && !user.email_verified) {
+      return res.status(403).json({
+        success: false,
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Please verify your email address before continuing.',
+        email: user.email
+      });
+    }
+
     // Enforce Seller Verification checks on login
     let sellerProfile = null;
     if (user.role === 'SELLER') {
@@ -253,6 +283,7 @@ const login = async (req, res) => {
       if (sellerProfile.approval_status === 'PENDING') {
         return res.status(403).json({
           success: false,
+          code: 'PENDING_APPROVAL',
           message: 'Your seller account is still under verification. Please wait until an administrator approves your account.',
           status: 'PENDING'
         });
@@ -284,7 +315,8 @@ const login = async (req, res) => {
       role: user.role,
       status: user.status,
       phone: user.phone,
-      avatar_url: user.avatar_url
+      avatar_url: user.avatar_url,
+      email_verified: Boolean(user.email_verified)
     };
 
     return res.json({
@@ -490,11 +522,200 @@ const resetPassword = async (req, res) => {
   }
 };
 
+/**
+ * Verify Email with 32-byte cryptographic token
+ */
+const verifyEmail = async (req, res) => {
+  try {
+    const token = (req.body.token || req.query.token || '').trim();
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Verification token is required.'
+      });
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const [users] = await pool.query(
+      `SELECT id, name, email, role, email_verified, email_verification_expires_at 
+       FROM users 
+       WHERE email_verification_token_hash = ? 
+       LIMIT 1`,
+      [hashedToken]
+    );
+
+    if (users.length === 0) {
+      return res.status(400).json({
+        success: false,
+        code: 'TOKEN_INVALID',
+        message: 'This verification link is invalid or has expired.'
+      });
+    }
+
+    const user = users[0];
+
+    // Check expiration (30-minute window)
+    if (user.email_verification_expires_at && new Date(user.email_verification_expires_at) < new Date()) {
+      return res.status(400).json({
+        success: false,
+        code: 'TOKEN_EXPIRED',
+        message: 'Your verification link has expired. Please request a new verification email.',
+        email: user.email
+      });
+    }
+
+    if (user.email_verified) {
+      return res.json({
+        success: true,
+        code: 'EMAIL_ALREADY_VERIFIED',
+        message: 'Your email address is already verified.',
+        email: user.email
+      });
+    }
+
+    // Mark email as verified and invalidate token (single-use)
+    await pool.query(
+      `UPDATE users 
+       SET email_verified = TRUE, 
+           email_verified_at = NOW(), 
+           email_verification_token_hash = NULL, 
+           email_verification_expires_at = NULL 
+       WHERE id = ?`,
+      [user.id]
+    );
+
+    return res.json({
+      success: true,
+      code: 'EMAIL_VERIFIED',
+      message: 'Email verified successfully! Your Kisanova account is now active.',
+      email: user.email,
+      role: user.role
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to verify email address.'
+    });
+  }
+};
+
+/**
+ * Resend Email Verification Link
+ * Protected against email enumeration and rate limited
+ */
+const resendVerification = async (req, res) => {
+  try {
+    const email = (req.body.email || '').trim().toLowerCase();
+    const genericSuccessMessage = 'If an account exists with this email address, a verification link has been sent.';
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email address is required.'
+      });
+    }
+
+    const [users] = await pool.query(
+      `SELECT id, name, email, role, email_verified, email_verification_expires_at 
+       FROM users 
+       WHERE email = ? 
+       LIMIT 1`,
+      [email]
+    );
+
+    // Anti-enumeration: If user does not exist, return generic success
+    if (users.length === 0) {
+      return res.json({
+        success: true,
+        message: genericSuccessMessage
+      });
+    }
+
+    const user = users[0];
+
+    // If already verified, inform gracefully without error
+    if (user.email_verified) {
+      return res.json({
+        success: true,
+        code: 'EMAIL_ALREADY_VERIFIED',
+        message: 'This account email is already verified. You can sign in immediately.',
+        alreadyVerified: true
+      });
+    }
+
+    // Database-level 60-second cooldown protection
+    if (user.email_verification_expires_at) {
+      const expiresAt = new Date(user.email_verification_expires_at).getTime();
+      const issuedAt = expiresAt - (30 * 60 * 1000);
+      const now = Date.now();
+      const elapsedMs = now - issuedAt;
+
+      if (elapsedMs < 60 * 1000) {
+        const retryAfterSeconds = Math.ceil((60 * 1000 - elapsedMs) / 1000);
+        res.setHeader('Retry-After', retryAfterSeconds);
+        return res.status(429).json({
+          success: false,
+          code: 'COOLDOWN_ACTIVE',
+          message: `Please wait ${retryAfterSeconds} seconds before requesting another verification email.`,
+          retryAfter: retryAfterSeconds,
+          data: {
+            cooldownRemainingSeconds: retryAfterSeconds
+          }
+        });
+      }
+    }
+
+    // Invalidate old token and issue fresh 32-byte cryptographic token
+    const rawVerificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenHash = crypto.createHash('sha256').update(rawVerificationToken).digest('hex');
+
+    await pool.query(
+      `UPDATE users 
+       SET email_verification_token_hash = ?, 
+           email_verification_expires_at = DATE_ADD(NOW(), INTERVAL 30 MINUTE) 
+       WHERE id = ?`,
+      [verificationTokenHash, user.id]
+    );
+
+    // Dispatch verification email through Brevo
+    const emailResult = await emailService.sendVerificationEmail({
+      toEmail: user.email,
+      toName: user.name,
+      rawToken: rawVerificationToken,
+      role: user.role
+    });
+
+    const response = {
+      success: true,
+      message: genericSuccessMessage,
+      emailSent: emailResult.success
+    };
+
+    if (process.env.NODE_ENV !== 'production') {
+      response.devVerificationToken = rawVerificationToken;
+      response.isDevelopment = true;
+    }
+
+    return res.json(response);
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to process verification request.'
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
   getMe,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  verifyEmail,
+  resendVerification
 };
 

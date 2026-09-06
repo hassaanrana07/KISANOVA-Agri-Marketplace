@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Sprout, Lock, Mail, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Sprout, Lock, Mail, ArrowRight, AlertCircle, CheckCircle2, Eye, EyeOff, Send } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const LoginPage = () => {
@@ -9,8 +9,11 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isUnverified, setIsUnverified] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState({ message: '', type: '' });
 
-  const { login } = useAuth();
+  const { login, resendVerification } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -20,6 +23,8 @@ const LoginPage = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+    setIsUnverified(false);
+    setResendStatus({ message: '', type: '' });
 
     if (!email.trim() || !password) {
       setErrorMessage('Please enter both your email address and password.');
@@ -33,12 +38,45 @@ const LoginPage = () => {
       if (res.success) {
         navigate(returnTo, { replace: true });
       } else {
+        if (res.isUnverified) {
+          setIsUnverified(true);
+        }
         setErrorMessage(res.message || 'Invalid email or password.');
       }
     } catch (err) {
       setErrorMessage('Unable to connect to the server. Please check your connection and try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email.trim()) {
+      setResendStatus({ message: 'Please enter your email address.', type: 'error' });
+      return;
+    }
+    setResending(true);
+    setResendStatus({ message: '', type: '' });
+    try {
+      const res = await resendVerification(email.trim());
+      if (res.success) {
+        setResendStatus({
+          message: 'Verification email sent! Please check your inbox and spam folder.',
+          type: 'success'
+        });
+      } else {
+        setResendStatus({
+          message: res.message || 'Failed to resend verification email.',
+          type: 'error'
+        });
+      }
+    } catch (err) {
+      setResendStatus({
+        message: 'Could not connect to the server to resend email.',
+        type: 'error'
+      });
+    } finally {
+      setResending(false);
     }
   };
 
@@ -61,12 +99,52 @@ const LoginPage = () => {
           </p>
         </div>
 
-        {errorMessage && (
+        {/* Unverified Email Warning with Resend Action */}
+        {isUnverified ? (
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <p className="font-bold text-amber-800">Email Verification Required</p>
+                <p className="text-amber-700 leading-relaxed">
+                  Your email has not been verified yet. Please check your inbox for the activation link we sent upon registration.
+                </p>
+              </div>
+            </div>
+
+            {resendStatus.message && (
+              <div
+                className={`p-2.5 rounded-xl text-xs flex items-center gap-2 ${
+                  resendStatus.type === 'success'
+                    ? 'bg-emerald-100/80 text-emerald-800 border border-emerald-300'
+                    : 'bg-red-100/80 text-red-800 border border-red-300'
+                }`}
+              >
+                {resendStatus.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                )}
+                <span>{resendStatus.message}</span>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resending}
+              className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:cursor-not-allowed"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{resending ? 'Sending Link...' : 'Resend Verification Email'}</span>
+            </button>
+          </div>
+        ) : errorMessage ? (
           <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{errorMessage}</span>
           </div>
-        )}
+        ) : null}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>

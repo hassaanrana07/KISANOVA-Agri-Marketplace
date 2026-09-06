@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Sprout, Lock, Mail, User, Phone, ArrowRight, AlertCircle } from 'lucide-react';
+import { Sprout, Lock, Mail, User, Phone, ArrowRight, AlertCircle, CheckCircle2, Send } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const RegisterPage = () => {
@@ -10,8 +10,11 @@ const RegisterPage = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [registeredSuccess, setRegisteredSuccess] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState({ message: '', type: '' });
 
-  const { register } = useAuth();
+  const { register, resendVerification } = useAuth();
   const navigate = useNavigate();
 
   const handleRegister = async (e) => {
@@ -22,14 +25,14 @@ const RegisterPage = () => {
     try {
       const res = await register({
         name,
-        email,
+        email: email.trim(),
         phone,
         password,
         role: 'BUYER'
       });
 
       if (res.success) {
-        navigate('/products');
+        setRegisteredSuccess(true);
       } else {
         setErrorMessage(res.message);
       }
@@ -39,6 +42,104 @@ const RegisterPage = () => {
       setLoading(false);
     }
   };
+
+  const handleResend = async () => {
+    setResending(true);
+    setResendStatus({ message: '', type: '' });
+    try {
+      const res = await resendVerification(email.trim());
+      if (res.success) {
+        setResendStatus({
+          message: 'Verification link resent! Check your inbox.',
+          type: 'success'
+        });
+      } else {
+        setResendStatus({
+          message: res.message || 'Failed to resend verification email.',
+          type: 'error'
+        });
+      }
+    } catch (err) {
+      setResendStatus({
+        message: 'Could not connect to the server to resend email.',
+        type: 'error'
+      });
+    } finally {
+      setResending(false);
+    }
+  };
+
+  if (registeredSuccess) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 p-8 shadow-xl text-center space-y-6">
+          <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto shadow-sm">
+            <Mail className="w-8 h-8 animate-bounce" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-[11px] uppercase tracking-widest font-black text-agro-700 block">
+              STEP 1: EMAIL VERIFICATION
+            </span>
+            <h2 className="text-2xl font-black text-slate-900">Check Your Email</h2>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              We've dispatched a secure activation link to:
+              <br />
+              <strong className="text-slate-900 font-bold">{email}</strong>
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-2.5 text-xs text-slate-600">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>Link is active for <strong>30 minutes</strong></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <span>Check your Spam/Junk folder if not received</span>
+            </div>
+          </div>
+
+          {resendStatus.message && (
+            <div
+              className={`p-3 rounded-xl text-xs flex items-center gap-2 text-left ${
+                resendStatus.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  : 'bg-red-50 text-red-800 border border-red-200'
+              }`}
+            >
+              {resendStatus.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              )}
+              <span>{resendStatus.message}</span>
+            </div>
+          )}
+
+          <div className="space-y-3 pt-2">
+            <Link
+              to="/login"
+              className="w-full py-3 bg-agro-600 hover:bg-agro-700 text-white rounded-xl text-xs font-bold shadow-md shadow-agro-600/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <span>Proceed to Sign In</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resending}
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>{resending ? 'Sending...' : 'Resend Verification Email'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">

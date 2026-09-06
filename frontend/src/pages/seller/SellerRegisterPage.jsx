@@ -13,7 +13,8 @@ import {
   Home,
   Compass,
   Clock,
-  Layers
+  Layers,
+  Send
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import FarmLocationPicker from '../../components/common/FarmLocationPicker';
@@ -45,9 +46,37 @@ const SellerRegisterPage = () => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState({ message: '', type: '' });
 
-  const { register } = useAuth();
+  const { register, resendVerification } = useAuth();
   const navigate = useNavigate();
+
+  const handleResend = async () => {
+    setResending(true);
+    setResendStatus({ message: '', type: '' });
+    try {
+      const res = await resendVerification(email.trim());
+      if (res.success) {
+        setResendStatus({
+          message: 'Verification link resent! Check your inbox.',
+          type: 'success'
+        });
+      } else {
+        setResendStatus({
+          message: res.message || 'Failed to resend verification email.',
+          type: 'error'
+        });
+      }
+    } catch (err) {
+      setResendStatus({
+        message: 'Could not connect to the server to resend email.',
+        type: 'error'
+      });
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -293,33 +322,88 @@ const SellerRegisterPage = () => {
         </p>
       </div>
 
-      {/* Under-Review Modal */}
+      {/* Two-Step Verification Onboarding Modal */}
       {showReviewModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-md w-full shadow-2xl text-center space-y-6 text-white relative">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl text-center space-y-6 text-white relative max-h-[90vh] overflow-y-auto">
             <div className="w-16 h-16 rounded-3xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center mx-auto shadow-inner">
-              <Clock className="w-8 h-8 animate-pulse" />
+              <Sprout className="w-8 h-8 text-agro-400" />
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-xl font-black text-white">Your Seller Account is Under Review</h3>
+              <span className="text-[11px] uppercase tracking-widest font-black text-agro-400 block">
+                FARM APPLICATION SUBMITTED
+              </span>
+              <h3 className="text-xl font-black text-white">Next Steps to Activate Your Farm</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Thank you for registering your farm on <strong>Kisanova</strong>! To protect harvest quality and ensure verified agricultural trade, our administrators review all new cultivator applications before opening dashboard access.
+                Thank you for applying to cultivate on <strong>Kisanova</strong>! To protect harvest quality and ensure verified agricultural trade, complete the following two steps:
               </p>
             </div>
 
+            {/* Step 1: Email Verification */}
+            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-left space-y-3">
+              <div className="flex items-start gap-2.5">
+                <div className="w-6 h-6 rounded-full bg-agro-600/30 border border-agro-500/50 text-agro-400 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                  1
+                </div>
+                <div className="text-xs space-y-1">
+                  <p className="font-bold text-white">Step 1: Verify Your Email (Mandatory)</p>
+                  <p className="text-slate-400 leading-relaxed">
+                    We sent an activation link to <strong className="text-white">{email}</strong>. Please check your inbox and click the link to confirm ownership.
+                  </p>
+                </div>
+              </div>
+
+              {resendStatus.message && (
+                <div
+                  className={`p-2.5 rounded-xl text-xs flex items-center gap-2 ${
+                    resendStatus.type === 'success'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                  }`}
+                >
+                  {resendStatus.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  )}
+                  <span>{resendStatus.message}</span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resending}
+                className="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 text-slate-300 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-slate-700 cursor-pointer disabled:cursor-not-allowed"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{resending ? 'Sending Link...' : 'Resend Verification Link'}</span>
+              </button>
+            </div>
+
+            {/* Step 2: Farm Inspection & Approval */}
             <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-left space-y-2 text-xs">
-              <div className="flex items-center gap-2 text-slate-300">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span>Farm GPS coordinates and boundary logged</span>
+              <div className="flex items-start gap-2.5">
+                <div className="w-6 h-6 rounded-full bg-amber-500/30 border border-amber-500/50 text-amber-400 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                  2
+                </div>
+                <div className="text-xs space-y-1">
+                  <p className="font-bold text-white">Step 2: Kisanova Farm Audit</p>
+                  <p className="text-slate-400 leading-relaxed">
+                    Our agronomy team reviews land coordinates and grower credentials before opening marketplace sales.
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-slate-300">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span>Location: {locationData.tehsil}, {locationData.district}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-300">
-                <Clock className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                <span>Verification ETA: 12–24 business hours</span>
+              <div className="pt-2 border-t border-slate-800 space-y-1.5 text-[11px] text-slate-400">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                  <span>GPS location logged: {locationData.tehsil}, {locationData.district}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                  <span>Review turnaround: 12–24 business hours</span>
+                </div>
               </div>
             </div>
 
