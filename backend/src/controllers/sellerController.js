@@ -795,21 +795,12 @@ const updateSellerProfile = async (req, res) => {
       estimated_delivery_min_days,
       estimated_delivery_max_days,
       delivery_fee,
-      pickup_instructions,
-      payout_method,
-      payout_account_title,
-      payout_account_number,
-      payout_bank_name
+      pickup_instructions
     } = req.body;
 
     const resolvedVillage = village !== undefined ? village : req.body.locality;
     const resolvedDeclaredAcreage = seller_declared_area_acres !== undefined ? seller_declared_area_acres : req.body.declared_acreage;
     const resolvedCalculatedAcreage = calculated_polygon_area_acres !== undefined ? calculated_polygon_area_acres : req.body.calculated_acreage;
-
-    let normalizedPayoutMethod = payout_method ? payout_method.toUpperCase() : null;
-    if (normalizedPayoutMethod === 'BANK') {
-      normalizedPayoutMethod = 'BANK_ACCOUNT';
-    }
 
     let reverificationRequired = false;
 
@@ -820,15 +811,6 @@ const updateSellerProfile = async (req, res) => {
           `INSERT INTO seller_profile_audits (seller_id, changed_by, field_name, old_value, new_value, triggered_reverification)
            VALUES (?, ?, 'farm_name', ?, ?, TRUE)`,
           [seller.id, req.user.id, seller.farm_name, farm_name]
-        );
-        reverificationRequired = true;
-      }
-
-      if (payout_account_number && payout_account_number !== seller.payout_account_number) {
-        await pool.query(
-          `INSERT INTO seller_profile_audits (seller_id, changed_by, field_name, old_value, new_value, triggered_reverification)
-           VALUES (?, ?, 'payout_account_number', ?, ?, TRUE)`,
-          [seller.id, req.user.id, seller.payout_account_number ? 'REDACTED_PREVIOUS' : 'NONE', payout_account_number]
         );
         reverificationRequired = true;
       }
@@ -862,10 +844,6 @@ const updateSellerProfile = async (req, res) => {
            estimated_delivery_max_days = COALESCE(?, estimated_delivery_max_days),
            delivery_fee = COALESCE(?, delivery_fee),
            pickup_instructions = COALESCE(?, pickup_instructions),
-           payout_method = COALESCE(?, payout_method),
-           payout_account_title = COALESCE(?, payout_account_title),
-           payout_account_number = COALESCE(?, payout_account_number),
-           payout_bank_name = COALESCE(?, payout_bank_name),
            approval_status = ?,
            updated_at = NOW()
        WHERE id = ?`,
@@ -894,10 +872,6 @@ const updateSellerProfile = async (req, res) => {
         estimated_delivery_max_days !== undefined && estimated_delivery_max_days !== '' ? parseInt(estimated_delivery_max_days) : null,
         delivery_fee !== undefined && delivery_fee !== '' ? parseFloat(delivery_fee) : null,
         pickup_instructions || null,
-        normalizedPayoutMethod || null,
-        payout_account_title || null,
-        payout_account_number || null,
-        payout_bank_name || null,
         targetApprovalStatus,
         seller.id
       ]
@@ -907,7 +881,7 @@ const updateSellerProfile = async (req, res) => {
 
     let responseMessage = 'Farm profile, boundary coordinates, and fulfillment settings updated successfully.';
     if (reverificationRequired) {
-      responseMessage = 'Profile saved. Notice: Modifying verified farm legal title or bank payout details requires administrative re-verification.';
+      responseMessage = 'Profile saved. Notice: Modifying verified farm legal title requires administrative re-verification.';
     }
 
     return res.json({

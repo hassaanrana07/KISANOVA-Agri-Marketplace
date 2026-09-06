@@ -449,8 +449,44 @@ async function runTests() {
     assert(pickupSuccess.status === 201, 'Farm Gate Self-Pickup succeeds without delivery address (HTTP 201)');
     const pickupMethod = pickupSuccess.body.data?.paymentMethod || pickupSuccess.body.data?.payment_method;
     const pickupFee = pickupSuccess.body.data?.deliveryFee !== undefined ? pickupSuccess.body.data?.deliveryFee : pickupSuccess.body.data?.delivery_fee;
-    assert(pickupMethod === 'FARM_PICKUP', 'Farm Gate Self-Pickup recorded with payment method FARM_PICKUP');
+    assert(pickupMethod === 'COD', 'Farm Gate Self-Pickup recorded with payment method COD');
     assert(pickupFee === 0, 'Farm Gate Self-Pickup delivery fee is 0 PKR');
+
+    // 5.3b Payment Method Tampering: Non-COD methods strictly rejected with HTTP 400
+    await pool.query('DELETE FROM cart_items WHERE cart_id = ?', [b1Cart[0].id]);
+    await pool.query('INSERT INTO cart_items (cart_id, product_id, seller_id, quantity, price_snapshot) VALUES (?, ?, ?, 1, ?)', [b1Cart[0].id, testProd.id, seller1Id, testProd.price]);
+
+    const jazzcashTamper = await makeRequest('POST', '/api/orders/checkout', { Authorization: `Bearer ${buyer1Token}` }, {
+      delivery_name: 'Tamper Tester',
+      delivery_phone: '+92 300 1112233',
+      delivery_address: 'Tamper Lane',
+      payment_method: 'JAZZCASH'
+    });
+    assert(jazzcashTamper.status === 400, 'Tampered payment_method JAZZCASH rejected with HTTP 400 Bad Request');
+
+    const bankTamper = await makeRequest('POST', '/api/orders/checkout', { Authorization: `Bearer ${buyer1Token}` }, {
+      delivery_name: 'Tamper Tester',
+      delivery_phone: '+92 300 1112233',
+      delivery_address: 'Tamper Lane',
+      payment_method: 'BANK_TRANSFER'
+    });
+    assert(bankTamper.status === 400, 'Tampered payment_method BANK_TRANSFER rejected with HTTP 400 Bad Request');
+
+    const onlineTamper = await makeRequest('POST', '/api/orders/checkout', { Authorization: `Bearer ${buyer1Token}` }, {
+      delivery_name: 'Tamper Tester',
+      delivery_phone: '+92 300 1112233',
+      delivery_address: 'Tamper Lane',
+      payment_method: 'ONLINE'
+    });
+    assert(onlineTamper.status === 400, 'Tampered payment_method ONLINE rejected with HTTP 400 Bad Request');
+
+    const codValid = await makeRequest('POST', '/api/orders/checkout', { Authorization: `Bearer ${buyer1Token}` }, {
+      delivery_name: 'Valid COD Tester',
+      delivery_phone: '+92 300 1112233',
+      delivery_address: 'Valid COD Address, Sahiwal',
+      payment_method: 'COD'
+    });
+    assert(codValid.status === 201, 'Explicit payment_method COD accepted with HTTP 201 Created');
 
     // 5.4 Multi-Seller Checkout
     // Fetch product from Seller 2

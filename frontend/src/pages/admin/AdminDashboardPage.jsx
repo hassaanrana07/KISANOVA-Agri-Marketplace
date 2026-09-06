@@ -405,7 +405,7 @@ const AdminDashboardPage = () => {
             Marketplace Control Overview
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Real-time analytics for multi-farm trade volume, producer compliance, and cash settlement.
+            Real-time analytics for multi-farm trade volume, producer compliance, and order fulfillment.
           </p>
         </div>
 
@@ -442,13 +442,13 @@ const AdminDashboardPage = () => {
             </div>
           </div>
           <p className="text-2xl sm:text-3xl font-black text-emerald-700">{formatPKR(kpis.paidRevenue || 0)}</p>
-          <p className="text-[11px] text-emerald-700 font-bold">Settled cash on delivery</p>
+          <p className="text-[11px] text-emerald-700 font-bold">Collected cash on delivery</p>
         </div>
 
-        {/* 3. Cash Pending Settlement */}
+        {/* 3. Uncollected COD (Pending) */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-2 shadow-xs hover:border-amber-200 transition-colors">
           <div className="flex items-center justify-between text-slate-500">
-            <span className="text-[11px] font-bold uppercase tracking-wider">Cash Pending Settlement</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider">Uncollected COD (Pending)</span>
             <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
               <Clock className="w-4 h-4" />
             </div>
@@ -531,9 +531,9 @@ const AdminDashboardPage = () => {
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <Banknote className="w-4 h-4 text-emerald-600" />
-              <h3 className="font-bold text-sm text-slate-900">Cash on Delivery Settlement Breakdown</h3>
+              <h3 className="font-bold text-sm text-slate-900">Cash on Delivery Payment Breakdown</h3>
             </div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Settlement Ledger</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Payment Ledger</span>
           </div>
           <PaymentStatusChart data={metrics?.paymentStatusDistribution} />
         </div>

@@ -87,7 +87,8 @@ const CheckoutPage = () => {
         delivery_phone: deliveryPhone,
         delivery_address: deliveryAddress,
         delivery_notes: deliveryNotes,
-        fulfillment_method: fulfillmentMethod
+        fulfillment_method: fulfillmentMethod,
+        payment_method: 'COD'
       });
 
       if (res.data.success) {
@@ -357,11 +358,11 @@ const CheckoutPage = () => {
                   Payment Method
                 </h3>
                 <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  {fulfillmentMethod === 'PICKUP' ? 'Farm Gate Cash Only' : 'Cash on Delivery Only'}
+                  Cash on Delivery (COD) Only
                 </span>
               </div>
 
-              {/* Dynamic COD vs Farm Pickup Card */}
+              {/* Dynamic COD Card */}
               <div className="p-4 rounded-2xl bg-slate-50 border-2 border-emerald-500/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -370,13 +371,11 @@ const CheckoutPage = () => {
                     </div>
                     <div>
                       <h4 className="text-xs font-black text-slate-900">
-                        {fulfillmentMethod === 'PICKUP'
-                          ? 'Cash at Farm Gate Pickup'
-                          : 'Cash on Delivery (COD)'}
+                        Cash on Delivery (COD)
                       </h4>
                       <p className="text-[11px] text-slate-500 mt-0.5">
                         {fulfillmentMethod === 'PICKUP'
-                          ? 'Inspect your harvest on-site at the farm gate and hand cash directly to the farmer.'
+                          ? 'Inspect your harvest on-site at the farm gate and hand cash directly upon physical pickup.'
                           : 'Inspect produce quality upon arrival and hand physical cash to the courier representative.'}
                       </p>
                     </div>

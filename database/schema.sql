@@ -82,11 +82,6 @@ CREATE TABLE sellers (
     estimated_delivery_max_days INT DEFAULT 4,
     delivery_fee DECIMAL(10, 2) DEFAULT 300.00,
     pickup_instructions TEXT NULL,
-    payout_method VARCHAR(50) DEFAULT 'BANK_ACCOUNT',
-    payout_account_title VARCHAR(150) NULL,
-    payout_account_number VARCHAR(100) NULL,
-    payout_bank_name VARCHAR(100) NULL,
-    payout_status ENUM('UNCONFIGURED', 'PENDING_VERIFICATION', 'VERIFIED') DEFAULT 'UNCONFIGURED',
     approval_status ENUM('PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'REVIEW_REQUIRED') NOT NULL DEFAULT 'PENDING',
     rejection_reason TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -289,28 +284,7 @@ CREATE TABLE payments (
 ) ENGINE=InnoDB;
 
 -- -------------------------------------------------------
--- 13. SELLER PAYOUTS (Settlement Handling)
--- -------------------------------------------------------
-CREATE TABLE seller_payouts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    seller_id INT NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
-    currency VARCHAR(10) NOT NULL DEFAULT 'PKR',
-    payout_method VARCHAR(50) NOT NULL,
-    payout_destination VARCHAR(150) NOT NULL,
-    payout_model ENUM('MERCHANT_SETTLEMENT', 'MARKETPLACE_SPLIT') NOT NULL DEFAULT 'MERCHANT_SETTLEMENT',
-    status ENUM('PENDING', 'PROCESSING', 'SETTLED', 'FAILED') NOT NULL DEFAULT 'PENDING',
-    reference_id VARCHAR(100) NULL,
-    notes TEXT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (seller_id) REFERENCES sellers(id) ON DELETE RESTRICT,
-    INDEX idx_seller_payouts_seller (seller_id),
-    INDEX idx_seller_payouts_status (status)
-) ENGINE=InnoDB;
-
--- -------------------------------------------------------
--- 14. SELLER PROFILE AUDITS (Auditability for Sensitive Edits)
+-- 13. SELLER PROFILE AUDITS (Auditability for Sensitive Edits)
 -- -------------------------------------------------------
 CREATE TABLE seller_profile_audits (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -327,7 +301,7 @@ CREATE TABLE seller_profile_audits (
 ) ENGINE=InnoDB;
 
 -- -------------------------------------------------------
--- 15. NOTIFICATIONS (Real-Time In-App Alerts)
+-- 14. NOTIFICATIONS (Real-Time In-App Alerts)
 -- -------------------------------------------------------
 CREATE TABLE notifications (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -345,7 +319,7 @@ CREATE TABLE notifications (
 ) ENGINE=InnoDB;
 
 -- -------------------------------------------------------
--- 16. PASSWORD RESETS (Secure OTP Management)
+-- 15. PASSWORD RESETS (Secure OTP Management)
 -- -------------------------------------------------------
 CREATE TABLE password_resets (
     id INT AUTO_INCREMENT PRIMARY KEY,

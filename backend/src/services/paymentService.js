@@ -3,8 +3,7 @@ const pool = require('../config/db');
 /**
  * Payment Service — Kisanova Agricultural Marketplace
  * Strictly supports only:
- * 1. Cash on Delivery (COD)
- * 2. Farm Gate Self-Pickup (FARM_PICKUP)
+ * Cash on Delivery (COD)
  * 
  * All online payment gateways, fake verification sessions, sandboxes,
  * and external webhooks have been permanently decommissioned.
@@ -15,12 +14,12 @@ class PaymentService {
   }
 
   /**
-   * Create an initial payment record for an order (COD or FARM_PICKUP)
+   * Create an initial payment record for an order (COD)
    */
-  async createPaymentRecord({ orderId, amount, paymentMethod = 'COD' }) {
+  async createPaymentRecord({ orderId, amount }) {
     const crypto = require('crypto');
     const formattedAmount = parseFloat(amount).toFixed(2);
-    const validMethod = paymentMethod === 'FARM_PICKUP' ? 'FARM_PICKUP' : 'COD';
+    const validMethod = 'COD';
     const receiptNumber = `REC-${orderId}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
     const [result] = await pool.query(
@@ -37,9 +36,7 @@ class PaymentService {
       currency: this.currency,
       status: 'UNPAID',
       paymentMethod: validMethod,
-      instruction: validMethod === 'FARM_PICKUP'
-        ? 'Payment will be made directly to the seller in cash upon farm gate pickup.'
-        : 'Payment will be collected by the logistics courier in cash upon harvest package delivery.'
+      instruction: 'Payment will be collected in cash upon physical handover (Cash on Delivery).'
     };
   }
 
@@ -105,13 +102,13 @@ class PaymentService {
       buyerName: order.delivery_name || order.buyer_name,
       buyerPhone: order.delivery_phone,
       deliveryAddress: order.delivery_address || 'Farm Gate Self-Pickup (No Delivery Address Required)',
-      fulfillmentMethod: order.fulfillment_method || (order.payment_method === 'FARM_PICKUP' ? 'PICKUP' : 'DELIVERY'),
+      fulfillmentMethod: order.fulfillment_method || 'DELIVERY',
       deliveryFee: parseFloat(order.delivery_fee || 0),
       estimatedDeliveryDays: order.estimated_delivery_min_days
         ? `${order.estimated_delivery_min_days}–${order.estimated_delivery_max_days || 4} days`
         : null,
       pickupInstructions: order.pickup_instructions || null,
-      paymentMethod: order.payment_method || (payment ? payment.payment_method : 'COD'),
+      paymentMethod: order.payment_method || 'COD',
       paymentStatus: order.payment_status,
       totalAmount: parseFloat(order.total_amount),
       amountPaid: parseFloat(order.amount_paid || 0),

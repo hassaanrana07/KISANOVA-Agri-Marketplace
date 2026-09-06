@@ -153,10 +153,6 @@ const URDU_DICTIONARY = {
   'profile.delivery_days_min': 'کم از کم ترسیلی دن',
   'profile.delivery_days_max': 'زیادہ سے زیادہ ترسیلی دن',
   'profile.pickup_instructions': 'فارم پر پہنچنے اور وصولی کی رہنمائی',
-  'profile.payout_method': 'رقم کی منتقلی کا طریقہ',
-  'profile.payout_account_title': 'بینک اکاؤنٹ یا موبائل والیٹ ٹائٹل',
-  'profile.payout_account_number': 'اکاؤنٹ نمبر یا IBAN',
-  'profile.payout_bank_name': 'بینک کا نام',
   'profile.save_profile': 'فارم پروفائل محفوظ کریں',
   'profile.saved_success': 'فارم کی معلومات اور رقبہ کامیابی کے ساتھ محفوظ ہو گیا۔',
 

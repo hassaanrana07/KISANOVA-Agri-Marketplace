@@ -101,7 +101,7 @@ const SellerDashboardPage = () => {
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            {t('dashboard.subtitle', 'Real-time agricultural order tracking, harvest revenue settlement, and fulfillment metrics in PKR.')}
+            {t('dashboard.subtitle', 'Real-time agricultural order tracking, harvest sales revenue, and fulfillment metrics in PKR.')}
           </p>
         </div>
 
@@ -181,7 +181,7 @@ const SellerDashboardPage = () => {
           <p className="text-xl font-black text-slate-900 truncate">
             {formatPKR(metrics.totalRevenue)}
           </p>
-          <p className="text-[10px] text-emerald-700 font-semibold">From settled sales</p>
+          <p className="text-[10px] text-emerald-700 font-semibold">From delivered sales</p>
         </div>
 
         {/* Paid Amount */}
@@ -197,7 +197,7 @@ const SellerDashboardPage = () => {
           <p className="text-xl font-black text-teal-700 truncate">
             {formatPKR(metrics.paidAmount)}
           </p>
-          <p className="text-[10px] text-slate-400 font-medium">Collected via COD / Farm Pickup</p>
+          <p className="text-[10px] text-slate-400 font-medium">Collected via Cash on Delivery</p>
         </div>
 
         {/* Pending Payment Amount */}

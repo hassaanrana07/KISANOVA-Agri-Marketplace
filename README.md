@@ -77,14 +77,14 @@ Kisanova is architected around **three dedicated frontend user portals** powered
 
 ### 1. Three Isolated Application Portals
 - **Commercial Public Marketplace (`:5000`)**: Designed for buyers to discover fresh farm produce, browse categories (Grains, Fruits, Vegetables, Cotton, Dairy), communicate directly with farmers, and place multi-seller orders with Cash on Delivery or Farm Gate Self-Pickup.
-- **Seller Backend Portal (`:5140`)**: Dedicated operational interface for farmers with farm profile customization, crop listing management, order dispatch pipeline, and financial settlement accounting.
+- **Seller Backend Portal (`:5140`)**: Dedicated operational interface for farmers with farm profile customization, crop listing management, order dispatch pipeline, and sales revenue accounting.
 - **Admin Governance Console (`:5174`)**: High-contrast administrative cockpit with real SVG visual analytics, seller verification audits, user management, and order governance.
 
-### 2. Strict Cash on Delivery (COD) & Farm Gate Self-Pickup Only
+### 2. Strict Cash on Delivery (COD) Only
 - **Zero Third-Party Online Payment Baggage**: Credit card gateways, mobile wallet integrations, external payment webhooks, and sandbox mocks are completely removed.
 - **Two Genuine Agricultural Fulfillment Modes**:
-  1. **Cash on Delivery (COD)**: For courier-dispatched deliveries. Requires recipient delivery address, applies regional farm delivery fees, and settles cash upon physical delivery.
-  2. **Farm Gate Self-Pickup (`FARM_PICKUP`)**: For buyers inspecting and loading produce directly at the farmer's fields. Delivery address is optional, delivery fee is 0 PKR, and payment is settled in-person on harvest collection.
+  1. **Cash on Delivery (COD)**: For courier-dispatched deliveries. Requires recipient delivery address, applies regional farm delivery fees, and collects cash upon physical delivery.
+  2. **Farm Gate Self-Pickup (`PICKUP`)**: For buyers inspecting and loading produce directly at the farmer's fields. Delivery address is optional, delivery fee is 0 PKR, and payment is collected in cash on physical harvest collection.
 - **Transparent COD Financial Ledger**:
   - **Total Order Value** (`amount_due` = subtotal + delivery fee)
   - **Cash Collected** (`amount_paid`)
@@ -199,7 +199,7 @@ KISANOVA/
 │   │   │   ├── productRoutes.js         # /api/products/*
 │   │   │   └── sellerRoutes.js          # /api/seller/*
 │   │   ├── services/
-│   │   │   ├── paymentService.js        # COD settlement & receipt formatting
+│   │   │   ├── paymentService.js        # COD payment & receipt formatting
 │   │   │   ├── socketService.js         # Socket.IO auth handshake & room dispatch
 │   │   │   └── storageService.js        # Local & Cloudinary file persistence
 │   │   ├── app.js                       # Express app configuration & CORS
@@ -249,7 +249,10 @@ KISANOVA/
 │   ├── seed.js                          # Comprehensive demo data seeder
 │   ├── migrate_v2.js                    # Agricultural location migration
 │   ├── migrate_v3.js                    # Reset token & polygon acreage migration
-│   └── migrate_v4.js                    # COD & Farm Pickup nullable address migration
+│   ├── migrate_v4.js                    # COD & Farm Pickup nullable address migration
+│   ├── migrate_v5.js                    # Password reset schema
+│   ├── migrate_v6.js                    # Mandatory Brevo email verification
+│   └── migrate_v7.js                    # COD-only payment & bank/settlement removal
 │
 ├── .gitignore
 ├── LICENSE
@@ -262,15 +265,15 @@ KISANOVA/
 
 The database `kisanova_db` consists of normalized relational tables:
 
-- **`users`**: Account identity with role (`ADMIN`, `SELLER`, `BUYER`) and status (`ACTIVE`, `SUSPENDED`).
+- **`users`**: Account identity with role (`ADMIN`, `SELLER`, `BUYER`), email verification status, and account status (`ACTIVE`, `SUSPENDED`).
 - **`sellers`**: Farm profiles linked to users, containing farm location hierarchy (`province`, `district`, `tehsil`, `village`), coordinates (`latitude`, `longitude`), `farm_polygon` coordinates, `seller_declared_area_acres`, `calculated_polygon_area_acres`, delivery fees, and pickup terms.
 - **`products`**: Crop listings with botanical categories, pricing per unit, stock quantity, and moderation status (`ACTIVE`, `INACTIVE`).
 - **`product_images`**: Multi-photo gallery linked to products.
 - **`carts` & `cart_items`**: Buyer carts supporting cross-farm multi-seller shopping with price snapshots.
-- **`orders`**: Parent order recording delivery destination, total PKR amount, order status, and payment method (`COD` or `FARM_PICKUP`).
+- **`orders`**: Parent order recording delivery destination, total PKR amount, order status, and payment method (`COD`).
 - **`seller_orders`**: Independent sub-orders generated per farm for granular dispatch and COD accounting (`amount_due`, `amount_paid`, `amount_remaining`, `status`, `payment_status`).
 - **`order_items`**: Line items allocated to respective seller sub-orders.
-- **`payments`**: Audit ledger recording transaction references, payment status (`UNPAID`, `PARTIALLY_PAID`, `PAID`), and payment method (`COD` or `FARM_PICKUP`).
+- **`payments`**: Audit ledger recording transaction references, payment status (`UNPAID`, `PARTIALLY_PAID`, `PAID`), and payment method (`COD`).
 - **`conversations` & `messages`**: Real-time buyer-seller chat threads with multimedia attachments.
 - **`password_resets`**: Stores `reset_token_hash` (SHA-256), `expires_at`, and single-use `used` flag.
 - **`notifications`**: In-app alerts for new orders and status updates.

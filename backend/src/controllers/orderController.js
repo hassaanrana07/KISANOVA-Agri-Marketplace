@@ -27,6 +27,16 @@ const checkout = async (req, res) => {
       seller_fulfillments = {} // optional per-seller mapping: { [sellerId]: 'DELIVERY' | 'PICKUP' }
     } = req.body;
 
+    const rawPaymentMethod = req.body.paymentMethod || req.body.payment_method;
+    if (rawPaymentMethod !== undefined && rawPaymentMethod !== null && String(rawPaymentMethod).trim() !== '') {
+      if (String(rawPaymentMethod).trim().toUpperCase() !== 'COD') {
+        return res.status(400).json({
+          success: false,
+          message: 'Only Cash on Delivery (COD) is supported as payment method.'
+        });
+      }
+    }
+
     if (!delivery_name || !delivery_phone) {
       return res.status(400).json({
         success: false,
@@ -172,7 +182,7 @@ const checkout = async (req, res) => {
     const allPickup = sellerFulfillmentList.every(f => f === 'PICKUP');
     const allDelivery = sellerFulfillmentList.every(f => f === 'DELIVERY');
     const parentFulfillment = allPickup ? 'PICKUP' : allDelivery ? 'DELIVERY' : 'MIXED';
-    const parentPaymentMethod = allPickup ? 'FARM_PICKUP' : 'COD';
+    const parentPaymentMethod = 'COD';
 
     // 5. Create Parent Order
     const [orderResult] = await connection.query(
@@ -209,7 +219,7 @@ const checkout = async (req, res) => {
     for (const sellerId of Object.keys(sellerGroups)) {
       const group = sellerGroups[sellerId];
       const sellerOrderTotal = group.subtotal + group.delivery_fee;
-      const sellerPaymentMethod = group.fulfillment_method === 'PICKUP' ? 'FARM_PICKUP' : 'COD';
+      const sellerPaymentMethod = 'COD';
 
       const [sellerOrderResult] = await connection.query(
         `INSERT INTO seller_orders 

@@ -9,7 +9,6 @@ import {
   Compass,
   Layers,
   Truck,
-  CreditCard,
   User,
   Clock,
   Info
@@ -26,7 +25,7 @@ const SellerProfilePage = () => {
   const { t, isRTL } = useLanguage();
 
   // Active Profile Section Tab
-  const [activeTab, setActiveTab] = useState('identity'); // 'identity', 'location', 'fulfillment', 'payout'
+  const [activeTab, setActiveTab] = useState('identity'); // 'identity', 'location', 'fulfillment'
 
   // Section 1: Farm Identity & Contact
   const [farmName, setFarmName] = useState(seller?.farm_name || '');
@@ -63,12 +62,6 @@ const SellerProfilePage = () => {
     seller?.pickup_instructions || 'Main Farm Gate 2, Sahiwal-Faisalabad Road. Loading available 08:00 to 18:00.'
   );
 
-  // Section 4: Payout Information
-  const [payoutMethod, setPayoutMethod] = useState(seller?.payout_method || 'BANK_ACCOUNT');
-  const [payoutAccountTitle, setPayoutAccountTitle] = useState(seller?.payout_account_title || seller?.farm_name || '');
-  const [payoutAccountNumber, setPayoutAccountNumber] = useState(seller?.payout_account_number || '');
-  const [payoutBankName, setPayoutBankName] = useState(seller?.payout_bank_name || 'Habib Bank Limited (HBL)');
-
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
   const [errorNotice, setErrorNotice] = useState('');
@@ -100,11 +93,6 @@ const SellerProfilePage = () => {
       if (seller.estimated_delivery_max_days) setDeliveryMaxDays(seller.estimated_delivery_max_days);
       if (seller.delivery_fee !== null && seller.delivery_fee !== undefined) setDeliveryFee(seller.delivery_fee);
       if (seller.pickup_instructions) setPickupInstructions(seller.pickup_instructions);
-
-      if (seller.payout_method) setPayoutMethod(seller.payout_method);
-      if (seller.payout_account_title) setPayoutAccountTitle(seller.payout_account_title);
-      if (seller.payout_account_number) setPayoutAccountNumber(seller.payout_account_number);
-      if (seller.payout_bank_name) setPayoutBankName(seller.payout_bank_name);
     }
   }, [seller]);
 
@@ -139,11 +127,7 @@ const SellerProfilePage = () => {
         estimated_delivery_min_days: deliveryMinDays,
         estimated_delivery_max_days: deliveryMaxDays,
         delivery_fee: deliveryFee,
-        pickup_instructions: pickupInstructions,
-        payout_method: payoutMethod,
-        payout_account_title: payoutAccountTitle,
-        payout_account_number: payoutAccountNumber,
-        payout_bank_name: payoutBankName
+        pickup_instructions: pickupInstructions
       });
 
       if (res.data.success) {
@@ -223,8 +207,8 @@ const SellerProfilePage = () => {
           {seller?.approval_status === 'REVIEW_REQUIRED' && (
             <p className="text-xs text-amber-700 mt-1">
               {isRTL
-                ? 'فارم کا نام یا بینک اکاؤنٹ تبدیل کرنے پر ایڈمن کی تصدیق درکار ہوتی ہے۔ آپ کی موجودہ لسٹنگز بدستور فعال رہیں گی۔'
-                : 'Modifying sensitive verification information (Farm Name or Banking Account) is currently being audited by Kisanova administrators. Your existing listings remain accessible.'}
+                ? 'فارم کا نام تبدیل کرنے پر ایڈمن کی تصدیق درکار ہوتی ہے۔ آپ کی موجودہ لسٹنگز بدستور فعال رہیں گی۔'
+                : 'Modifying sensitive verification information (Farm Name) is currently being audited by Kisanova administrators. Your existing listings remain accessible.'}
             </p>
           )}
         </div>
@@ -239,8 +223,7 @@ const SellerProfilePage = () => {
         {[
           { id: 'identity', label: isRTL ? '1. فارم شناخت اور رابطہ' : '1. Farm Identity', icon: Building },
           { id: 'location', label: isRTL ? '2. مقام اور باؤنڈری نقشہ' : '2. Location & Boundary GIS', icon: Compass },
-          { id: 'fulfillment', label: isRTL ? '3. ترسیلی طریقہ کار' : '3. Fulfillment Settings', icon: Truck },
-          { id: 'payout', label: isRTL ? '4. بینک اور سیٹلمنٹ' : '4. Bank & Settlement', icon: CreditCard }
+          { id: 'fulfillment', label: isRTL ? '3. ترسیلی طریقہ کار' : '3. Fulfillment Settings', icon: Truck }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -492,78 +475,6 @@ const SellerProfilePage = () => {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 4: Bank & Settlement */}
-      {activeTab === 'payout' && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6 animate-fadeIn">
-          <div className="border-b border-slate-100 pb-4">
-            <h3 className="font-bold text-sm text-slate-900">Seller Bank & Settlement Routing</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Configure your authorized bank account for internal accounting settlements.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Settlement Account Type *</label>
-              <select
-                value={payoutMethod}
-                onChange={(e) => setPayoutMethod(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-agro-500"
-              >
-                <option value="BANK_ACCOUNT">Direct Bank / IBAN Settlement Account</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Account Title *</label>
-              <input
-                type="text"
-                required
-                value={payoutAccountTitle}
-                onChange={(e) => setPayoutAccountTitle(e.target.value)}
-                placeholder="e.g. Chenab Agro Enterprises"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-agro-500"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                IBAN / Account Number *
-              </label>
-              <input
-                type="text"
-                required
-                value={payoutAccountNumber}
-                onChange={(e) => setPayoutAccountNumber(e.target.value)}
-                placeholder="PK36HABB00012345678901"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-agro-500"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">Bank / Institution Name</label>
-              <input
-                type="text"
-                value={payoutBankName}
-                onChange={(e) => setPayoutBankName(e.target.value)}
-                placeholder="e.g. Habib Bank Limited (HBL)"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-agro-500"
-              />
-            </div>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
-            <Info className="w-4 h-4 text-amber-600 flex-shrink-0" />
-            <span>
-              <strong>{isRTL ? 'کیش آن ڈیلیوری اور سیٹلمنٹ نوٹ:' : 'Settlement Note:'}</strong>{' '}
-              {isRTL
-                ? 'کسانووا کیش آن ڈیلیوری (COD) اور فارم پک اپ ماڈل پر کام کرتا ہے۔ بینک اکاؤنٹ کا اندراج انٹرنل لیجر ریکارڈ اور پلیٹ فارم سیٹلمنٹ کے لیے استعمال ہوتا ہے۔'
-                : 'Kisanova operates on a Cash on Delivery (COD) and Farm Gate Pickup model. Bank details are maintained for internal ledger records and platform accounting settlements.'}
-            </span>
           </div>
         </div>
       )}

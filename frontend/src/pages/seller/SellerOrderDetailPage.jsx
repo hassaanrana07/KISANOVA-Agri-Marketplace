@@ -303,7 +303,7 @@ const SellerOrderDetailPage = () => {
               className="w-full bg-slate-50 border border-slate-200 text-xs font-bold rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
             >
               <option value="UNPAID">{t('status.unpaid', 'UNPAID')} — Cash Not Yet Collected</option>
-              <option value="PAID">{t('status.paid', 'PAID')} — Full Cash Collected & Settled</option>
+              <option value="PAID">{t('status.paid', 'PAID')} — Full Cash Collected</option>
             </select>
 
             <button
@@ -429,10 +429,10 @@ const SellerOrderDetailPage = () => {
           buyerName: order.delivery_name,
           buyerPhone: order.delivery_phone,
           deliveryAddress: order.delivery_address,
-          paymentMethod: isPickupOrder ? 'FARM_PICKUP' : 'COD',
+          paymentMethod: 'COD',
           paymentStatus: order.payment_status || 'UNPAID',
           orderStatus: order.status || 'PENDING',
-          fulfillmentMethod: isPickupOrder ? 'FARM_PICKUP' : 'DELIVERY',
+          fulfillmentMethod: isPickupOrder ? 'PICKUP' : 'DELIVERY',
           pickupInstructions: order.pickup_instructions,
           totalAmount: order.subtotal,
           items: order.items || []
