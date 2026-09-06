@@ -36,8 +36,8 @@ const getAdminMetrics = async (req, res) => {
          COUNT(CASE WHEN order_status = 'PENDING' THEN 1 END) as pending_orders,
          COUNT(CASE WHEN order_status = 'DELIVERED' THEN 1 END) as delivered_orders,
          COALESCE(SUM(total_amount), 0) as total_revenue,
-         COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN total_amount ELSE amount_paid END), 0) as paid_revenue,
-         COALESCE(SUM(CASE WHEN payment_status = 'UNPAID' THEN total_amount WHEN payment_status = 'PARTIALLY_PAID' THEN (total_amount - amount_paid) ELSE 0 END), 0) as pending_revenue
+         COALESCE(SUM(CASE WHEN payment_status = 'PAID' THEN total_amount ELSE 0 END), 0) as paid_revenue,
+         COALESCE(SUM(CASE WHEN payment_status = 'UNPAID' THEN total_amount ELSE 0 END), 0) as pending_revenue
        FROM orders`
     );
 
@@ -331,7 +331,7 @@ const getAdminOrders = async (req, res) => {
         o.id, o.order_number, o.buyer_id, o.total_amount, o.delivery_name,
         o.delivery_phone, o.delivery_address, o.payment_status, o.order_status, o.created_at,
         u.name as buyer_name, u.email as buyer_email,
-        p.id as payment_id, p.payment_provider, p.transaction_reference, p.proof_url, p.admin_notes,
+        p.id as payment_id, p.payment_method, p.receipt_number, p.amount_paid, p.amount_remaining, p.proof_url, p.admin_notes,
         GROUP_CONCAT(DISTINCT s.farm_name SEPARATOR ', ') as involved_farms,
         COUNT(DISTINCT so.id) as seller_order_count
       FROM orders o

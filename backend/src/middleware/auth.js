@@ -4,10 +4,7 @@ const pool = require('../config/db');
 const getJwtSecret = () => {
   const secret = process.env.JWT_SECRET;
   if (!secret || secret.trim().length === 0) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('FATAL SECURITY ERROR: JWT_SECRET environment variable must be defined in production.');
-    }
-    return 'kisanova_dev_fallback_secret_key_2026_never_use_in_prod';
+    throw new Error('FATAL SECURITY ERROR: JWT_SECRET environment variable must be defined.');
   }
   return secret.trim();
 };
@@ -28,7 +25,7 @@ const requireAuth = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
     const secret = getJwtSecret();
-    const decoded = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] });
 
     // Query fresh user data from database
     const [users] = await pool.query(

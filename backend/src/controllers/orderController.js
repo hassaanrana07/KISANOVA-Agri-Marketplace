@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const pool = require('../config/db');
 const paymentService = require('../services/paymentService');
 const socketService = require('../services/socketService');
@@ -180,8 +181,8 @@ const checkout = async (req, res) => {
          estimated_delivery_min_days, estimated_delivery_max_days, pickup_instructions,
          amount_due, amount_paid, amount_remaining,
          delivery_name, delivery_phone, delivery_address, delivery_notes, 
-         payment_method, online_provider, payment_status, order_status)
-       VALUES (?, ?, ?, 'PKR', ?, ?, ?, ?, ?, ?, 0.00, ?, ?, ?, ?, ?, ?, NULL, 'UNPAID', 'PENDING')`,
+         payment_method, payment_status, order_status)
+       VALUES (?, ?, ?, 'PKR', ?, ?, ?, ?, ?, ?, 0.00, ?, ?, ?, ?, ?, ?, 'UNPAID', 'PENDING')`,
       [
         orderNumber,
         buyerId,
@@ -214,8 +215,8 @@ const checkout = async (req, res) => {
         `INSERT INTO seller_orders 
           (order_id, seller_id, subtotal, fulfillment_method, delivery_fee, 
            amount_due, amount_paid, amount_remaining,
-           payment_method, online_provider, payment_status, status)
-         VALUES (?, ?, ?, ?, ?, ?, 0.00, ?, ?, NULL, 'UNPAID', 'PENDING')`,
+           payment_method, payment_status, status)
+         VALUES (?, ?, ?, ?, ?, ?, 0.00, ?, ?, 'UNPAID', 'PENDING')`,
         [
           parentOrderId,
           sellerId,
@@ -258,18 +259,17 @@ const checkout = async (req, res) => {
     }
 
     // 7. Create payment audit record
-    const refPrefix = parentPaymentMethod === 'FARM_PICKUP' ? 'FARM_PICKUP' : 'COD';
+    const receiptNumber = `REC-${parentOrderId}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     await connection.query(
       `INSERT INTO payments 
-        (order_id, payment_provider, transaction_reference, amount, currency, amount_paid, amount_remaining, status, payment_method)
-       VALUES (?, ?, ?, ?, 'PKR', 0.00, ?, 'PENDING', ?)`,
+        (order_id, payment_method, receipt_number, amount, currency, amount_paid, amount_remaining, status)
+       VALUES (?, ?, ?, ?, 'PKR', 0.00, ?, 'UNPAID')`,
       [
         parentOrderId,
-        parentPaymentMethod === 'FARM_PICKUP' ? 'farm_gate_pickup' : 'cash_on_delivery',
-        `${refPrefix}-${parentOrderId}-${Date.now().toString().slice(-6)}`,
+        parentPaymentMethod,
+        receiptNumber,
         grandTotal,
-        grandTotal,
-        parentPaymentMethod
+        grandTotal
       ]
     );
 
@@ -366,7 +366,7 @@ const getBuyerOrders = async (req, res) => {
          o.id, o.order_number, o.total_amount, o.currency, o.fulfillment_method, o.delivery_fee,
          o.amount_due, o.amount_paid, o.amount_remaining,
          o.delivery_name, o.delivery_phone, o.delivery_address, 
-         o.payment_method, o.online_provider, o.payment_status, o.transaction_reference, o.order_status, o.created_at,
+         o.payment_method, o.payment_status, o.order_status, o.created_at,
          COUNT(DISTINCT so.id) as seller_count,
          COUNT(oi.id) as total_items_count
        FROM orders o
@@ -465,7 +465,7 @@ const getOrderDetails = async (req, res) => {
 
     // Fetch payment record
     const [payments] = await pool.query(
-      `SELECT id, payment_provider, transaction_reference, amount, currency, 
+      `SELECT id, receipt_number, amount, currency, 
               amount_paid, amount_remaining, status, payment_method, proof_url, admin_notes, created_at 
        FROM payments 
        WHERE order_id = ? 

@@ -28,7 +28,7 @@ const createRateLimiter = ({
       return next();
     }
 
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const ip = req.ip || req.socket?.remoteAddress || '127.0.0.1';
     const key = `${ip}:${req.path}`;
     const now = Date.now();
 

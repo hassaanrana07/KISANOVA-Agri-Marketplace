@@ -212,9 +212,9 @@ const OrderDetailPage = () => {
               </strong>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-500">Transaction Ref:</span>
+              <span className="text-slate-500">Receipt Ref:</span>
               <span className="font-mono text-slate-700 truncate max-w-[200px]">
-                {payment?.transaction_reference || (order.payment_method === 'FARM_PICKUP' ? 'FARM-PICKUP' : 'COD-DIRECT')}
+                {payment?.receipt_number || (order.payment_method === 'FARM_PICKUP' ? 'FARM-PICKUP' : 'COD-DIRECT')}
               </span>
             </div>
             <div className="flex justify-between">

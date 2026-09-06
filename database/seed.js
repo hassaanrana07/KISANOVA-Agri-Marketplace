@@ -281,18 +281,21 @@ async function seed() {
     // 6. Create Seed Multi-Seller Order (Demonstration of Multi-Seller Checkout)
     // Order 1: Cash on Delivery (COD - PAID upon delivery)
     const orderNum1 = 'KSN-' + Math.floor(100000 + Math.random() * 900000);
-    const txnRef1 = 'TXN-COD-' + Math.floor(100000 + Math.random() * 900000);
     const [parentOrder1] = await conn.query(
-      `INSERT INTO orders (order_number, buyer_id, total_amount, delivery_name, delivery_phone, delivery_address, payment_method, online_provider, payment_status, transaction_reference, order_status)
-       VALUES (?, ?, 198.00, 'Zainab Ali', '+92 301 9012345', '742 Canal View Gardens, Sector B, Lahore', 'COD', NULL, 'PAID', ?, 'PROCESSING')`,
-      [orderNum1, buyerUser1.insertId, txnRef1]
+      `INSERT INTO orders 
+        (order_number, buyer_id, total_amount, currency, fulfillment_method, delivery_fee, 
+         amount_due, amount_paid, amount_remaining, delivery_name, delivery_phone, delivery_address, 
+         payment_method, payment_status, order_status)
+       VALUES (?, ?, 198.00, 'PKR', 'DELIVERY', 0.00, 198.00, 198.00, 0.00, 'Zainab Ali', '+92 301 9012345', '742 Canal View Gardens, Sector B, Lahore', 'COD', 'PAID', 'PROCESSING')`,
+      [orderNum1, buyerUser1.insertId]
     );
 
     // Sub-order 1 for Seller 1 (Green Valley Farms)
     const [subOrder1] = await conn.query(
-      `INSERT INTO seller_orders (order_id, seller_id, subtotal, payment_method, online_provider, payment_status, transaction_reference, status)
-       VALUES (?, ?, 84.00, 'COD', NULL, 'PAID', ?, 'PROCESSING')`,
-      [parentOrder1.insertId, seller1.insertId, txnRef1]
+      `INSERT INTO seller_orders 
+        (order_id, seller_id, subtotal, fulfillment_method, delivery_fee, amount_due, amount_paid, amount_remaining, payment_method, payment_status, status)
+       VALUES (?, ?, 84.00, 'DELIVERY', 0.00, 84.00, 84.00, 0.00, 'COD', 'PAID', 'PROCESSING')`,
+      [parentOrder1.insertId, seller1.insertId]
     );
 
     await conn.query(
@@ -303,9 +306,10 @@ async function seed() {
 
     // Sub-order 2 for Seller 2 (Golden Harvest Organics)
     const [subOrder2] = await conn.query(
-      `INSERT INTO seller_orders (order_id, seller_id, subtotal, payment_method, online_provider, payment_status, transaction_reference, status)
-       VALUES (?, ?, 114.00, 'COD', NULL, 'PAID', ?, 'CONFIRMED')`,
-      [parentOrder1.insertId, seller2.insertId, txnRef1]
+      `INSERT INTO seller_orders 
+        (order_id, seller_id, subtotal, fulfillment_method, delivery_fee, amount_due, amount_paid, amount_remaining, payment_method, payment_status, status)
+       VALUES (?, ?, 114.00, 'DELIVERY', 0.00, 114.00, 114.00, 0.00, 'COD', 'PAID', 'CONFIRMED')`,
+      [parentOrder1.insertId, seller2.insertId]
     );
 
     await conn.query(
@@ -316,22 +320,27 @@ async function seed() {
 
     // Payment record for Order 1
     await conn.query(
-      `INSERT INTO payments (order_id, payment_provider, transaction_reference, amount, currency, status, payment_method)
-       VALUES (?, 'cod', ?, 198.00, 'USD', 'PAID', 'cod')`,
-      [parentOrder1.insertId, txnRef1]
+      `INSERT INTO payments 
+        (order_id, payment_method, receipt_number, amount, currency, amount_paid, amount_remaining, status)
+       VALUES (?, 'COD', ?, 198.00, 'PKR', 198.00, 0.00, 'PAID')`,
+      [parentOrder1.insertId, `REC-${parentOrder1.insertId}-${Date.now().toString().slice(-6)}`]
     );
 
-    // Seed Order 2: Buyer 2 buys Onions from Seller 2 via Cash on Delivery (COD - PENDING)
+    // Seed Order 2: Buyer 2 buys Onions from Seller 2 via Cash on Delivery (COD - UNPAID)
     const orderNum2 = 'KSN-' + Math.floor(100000 + Math.random() * 900000);
     const [parentOrder2] = await conn.query(
-      `INSERT INTO orders (order_number, buyer_id, total_amount, delivery_name, delivery_phone, delivery_address, payment_method, online_provider, payment_status, transaction_reference, order_status)
-       VALUES (?, ?, 52.00, 'David Miller', '+92 345 6789012', '45 Market Avenue, Grain Terminal District, Rawalpindi', 'COD', NULL, 'PENDING', NULL, 'PENDING')`,
+      `INSERT INTO orders 
+        (order_number, buyer_id, total_amount, currency, fulfillment_method, delivery_fee, 
+         amount_due, amount_paid, amount_remaining, delivery_name, delivery_phone, delivery_address, 
+         payment_method, payment_status, order_status)
+       VALUES (?, ?, 52.00, 'PKR', 'DELIVERY', 0.00, 52.00, 0.00, 52.00, 'David Miller', '+92 345 6789012', '45 Market Avenue, Grain Terminal District, Rawalpindi', 'COD', 'UNPAID', 'PENDING')`,
       [orderNum2, buyerUser2.insertId]
     );
 
     const [subOrder3] = await conn.query(
-      `INSERT INTO seller_orders (order_id, seller_id, subtotal, payment_method, online_provider, payment_status, transaction_reference, status)
-       VALUES (?, ?, 52.00, 'COD', NULL, 'PENDING', NULL, 'PENDING')`,
+      `INSERT INTO seller_orders 
+        (order_id, seller_id, subtotal, fulfillment_method, delivery_fee, amount_due, amount_paid, amount_remaining, payment_method, payment_status, status)
+       VALUES (?, ?, 52.00, 'DELIVERY', 0.00, 52.00, 0.00, 52.00, 'COD', 'UNPAID', 'PENDING')`,
       [parentOrder2.insertId, seller2.insertId]
     );
 
@@ -341,12 +350,12 @@ async function seed() {
       [subOrder3.insertId, insertedProductIds[5]]
     );
 
-    // Payment record for Order 2 (Cash on Delivery pending rider collection)
-    const txnRef2 = 'COD-' + Math.floor(100000 + Math.random() * 900000);
+    // Payment record for Order 2 (Cash on Delivery pending courier collection)
     await conn.query(
-      `INSERT INTO payments (order_id, payment_provider, transaction_reference, amount, currency, status, payment_method, admin_notes)
-       VALUES (?, 'cod', ?, 52.00, 'PKR', 'PENDING', 'COD', 'Cash on Delivery - to be collected by courier upon arrival')`,
-      [parentOrder2.insertId, txnRef2]
+      `INSERT INTO payments 
+        (order_id, payment_method, receipt_number, amount, currency, amount_paid, amount_remaining, status, admin_notes)
+       VALUES (?, 'COD', ?, 52.00, 'PKR', 0.00, 52.00, 'UNPAID', 'Cash on Delivery - to be collected by courier upon arrival')`,
+      [parentOrder2.insertId, `REC-${parentOrder2.insertId}-${Date.now().toString().slice(-6)}`]
     );
 
     console.log('✅ Created multi-seller demonstration orders with payment records');

@@ -64,7 +64,7 @@ const SellerProfilePage = () => {
   );
 
   // Section 4: Payout Information
-  const [payoutMethod, setPayoutMethod] = useState(seller?.payout_method || 'BANK_TRANSFER');
+  const [payoutMethod, setPayoutMethod] = useState(seller?.payout_method || 'BANK_ACCOUNT');
   const [payoutAccountTitle, setPayoutAccountTitle] = useState(seller?.payout_account_title || seller?.farm_name || '');
   const [payoutAccountNumber, setPayoutAccountNumber] = useState(seller?.payout_account_number || '');
   const [payoutBankName, setPayoutBankName] = useState(seller?.payout_bank_name || 'Habib Bank Limited (HBL)');
@@ -514,7 +514,7 @@ const SellerProfilePage = () => {
                 onChange={(e) => setPayoutMethod(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-agro-500"
               >
-                <option value="BANK_TRANSFER">Direct Bank / IBAN Settlement Account</option>
+                <option value="BANK_ACCOUNT">Direct Bank / IBAN Settlement Account</option>
               </select>
             </div>
 

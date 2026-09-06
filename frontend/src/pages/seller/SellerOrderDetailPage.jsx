@@ -83,8 +83,7 @@ const SellerOrderDetailPage = () => {
     setNotice('');
     try {
       const payload = {
-        payment_status: selectedPaymentStatus,
-        amount_paid: selectedPaymentStatus === 'PARTIALLY_PAID' ? parseFloat(customAmountPaid || 0) : undefined
+        payment_status: selectedPaymentStatus
       };
       const res = await api.put(`/seller/orders/${id}/payment-status`, payload);
       if (res.data.success) {
@@ -117,8 +116,6 @@ const SellerOrderDetailPage = () => {
     switch (status) {
       case 'PAID':
         return 'bg-emerald-100 text-emerald-800 border-emerald-300';
-      case 'PARTIALLY_PAID':
-        return 'bg-amber-100 text-amber-800 border-amber-300';
       default:
         return 'bg-rose-100 text-rose-800 border-rose-300';
     }
@@ -306,39 +303,12 @@ const SellerOrderDetailPage = () => {
               className="w-full bg-slate-50 border border-slate-200 text-xs font-bold rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
             >
               <option value="UNPAID">{t('status.unpaid', 'UNPAID')} — Cash Not Yet Collected</option>
-              <option value="PARTIALLY_PAID">{t('status.partially_paid', 'PARTIALLY PAID')} — Partial Advance Received</option>
               <option value="PAID">{t('status.paid', 'PAID')} — Full Cash Collected & Settled</option>
             </select>
 
-            {selectedPaymentStatus === 'PARTIALLY_PAID' && (
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                  {t('order.partial_cash_label', 'Partial Cash Amount Collected (PKR)')}
-                </label>
-                <div className="relative">
-                  <span className={`text-xs font-bold text-slate-400 absolute ${isRTL ? 'right-3' : 'left-3'} top-2.5`}>Rs.</span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    max={parseFloat(order.amount_due || (parseFloat(order.subtotal) + parseFloat(order.delivery_fee || 0)))}
-                    value={customAmountPaid}
-                    onChange={(e) => setCustomAmountPaid(e.target.value)}
-                    placeholder={t('order.partial_cash_placeholder', 'Enter collected amount')}
-                    className={`w-full bg-slate-50 border border-slate-200 text-xs font-bold rounded-xl ${isRTL ? 'pr-10 pl-3' : 'pl-10 pr-3'} py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500`}
-                  />
-                </div>
-              </div>
-            )}
-
             <button
               onClick={handleUpdatePaymentStatus}
-              disabled={
-                updatingPayment ||
-                (selectedPaymentStatus === order.payment_status &&
-                  (selectedPaymentStatus !== 'PARTIALLY_PAID' ||
-                    parseFloat(customAmountPaid || 0) === parseFloat(order.amount_paid || 0)))
-              }
+              disabled={updatingPayment || selectedPaymentStatus === order.payment_status}
               className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
             >
               {updatingPayment ? '...' : t('order.update_payment', 'Update Payment Status')}

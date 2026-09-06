@@ -197,7 +197,7 @@ const SellerDashboardPage = () => {
           <p className="text-xl font-black text-teal-700 truncate">
             {formatPKR(metrics.paidAmount)}
           </p>
-          <p className="text-[10px] text-slate-400 font-medium">Settled via gateway/COD</p>
+          <p className="text-[10px] text-slate-400 font-medium">Collected via COD / Farm Pickup</p>
         </div>
 
         {/* Pending Payment Amount */}
@@ -213,7 +213,7 @@ const SellerDashboardPage = () => {
           <p className="text-xl font-black text-amber-700 truncate">
             {formatPKR(metrics.pendingPaymentAmount)}
           </p>
-          <p className="text-[10px] text-amber-700 font-semibold">In escrow / uncollected</p>
+          <p className="text-[10px] text-amber-700 font-semibold">Uncollected COD cash</p>
         </div>
       </div>
 

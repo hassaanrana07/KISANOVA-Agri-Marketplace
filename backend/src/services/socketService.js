@@ -46,7 +46,7 @@ const initSocket = (httpServer) => {
       }
 
       const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7).trim() : rawToken.trim();
-      const decoded = jwt.verify(token, getJwtSecret());
+      const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] });
 
       const [users] = await pool.query(
         'SELECT id, name, email, role, status FROM users WHERE id = ?',

@@ -1,5 +1,6 @@
 const multer = require('multer');
 const path = require('path');
+const crypto = require('crypto');
 const { uploadsDir } = require('../services/storageService');
 
 // Whitelisted file extensions and corresponding MIME types
@@ -29,7 +30,7 @@ const storage = multer.diskStorage({
       .replace(/[^a-zA-Z0-9_-]/g, '')
       .slice(0, 30);
 
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(16).toString('hex')}`;
     const safeFilename = `${file.fieldname}-${baseName || 'upload'}-${uniqueSuffix}${ext}`;
     cb(null, safeFilename);
   }

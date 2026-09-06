@@ -9,6 +9,11 @@ CREATE DATABASE IF NOT EXISTS kisanova_db
 USE kisanova_db;
 
 -- Drop tables in reverse dependency order for clean migrations
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS password_resets;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS seller_profile_audits;
+DROP TABLE IF EXISTS seller_payouts;
 DROP TABLE IF EXISTS payments;
 DROP TABLE IF EXISTS messages;
 DROP TABLE IF EXISTS conversations;
@@ -21,6 +26,7 @@ DROP TABLE IF EXISTS product_images;
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS sellers;
 DROP TABLE IF EXISTS users;
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- -------------------------------------------------------
 -- 1. USERS
@@ -71,7 +77,7 @@ CREATE TABLE sellers (
     estimated_delivery_max_days INT DEFAULT 4,
     delivery_fee DECIMAL(10, 2) DEFAULT 300.00,
     pickup_instructions TEXT NULL,
-    payout_method ENUM('BANK_TRANSFER') DEFAULT 'BANK_TRANSFER',
+    payout_method VARCHAR(50) DEFAULT 'BANK_ACCOUNT',
     payout_account_title VARCHAR(150) NULL,
     payout_account_number VARCHAR(100) NULL,
     payout_bank_name VARCHAR(100) NULL,
@@ -170,9 +176,7 @@ CREATE TABLE orders (
     delivery_address TEXT NULL, -- Nullable for Farm Gate Pickup
     delivery_notes TEXT NULL,
     payment_method VARCHAR(50) NOT NULL DEFAULT 'COD', -- 'COD', 'FARM_PICKUP'
-    online_provider VARCHAR(50) NULL,
-    payment_status ENUM('UNPAID', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'UNPAID',
-    transaction_reference VARCHAR(150) NULL,
+    payment_status ENUM('UNPAID', 'PAID') NOT NULL DEFAULT 'UNPAID',
     order_status VARCHAR(50) NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP', 'SHIPPED', 'PICKED_UP', 'DELIVERED', 'CANCELLED'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -196,9 +200,7 @@ CREATE TABLE seller_orders (
     amount_paid DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     amount_remaining DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     payment_method VARCHAR(50) NOT NULL DEFAULT 'COD', -- 'COD', 'FARM_PICKUP'
-    online_provider VARCHAR(50) NULL,
-    payment_status ENUM('UNPAID', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'UNPAID',
-    transaction_reference VARCHAR(150) NULL,
+    payment_status ENUM('UNPAID', 'PAID') NOT NULL DEFAULT 'UNPAID',
     status VARCHAR(50) NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP', 'SHIPPED', 'PICKED_UP', 'DELIVERED', 'CANCELLED'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -264,24 +266,21 @@ CREATE TABLE payments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
     seller_id INT NULL,
-    payment_provider VARCHAR(50) NOT NULL DEFAULT 'cod', -- 'cod', 'farm_pickup'
-    transaction_reference VARCHAR(150) NOT NULL UNIQUE,
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'COD', -- 'COD', 'FARM_PICKUP'
+    receipt_number VARCHAR(100) NOT NULL UNIQUE,
     amount DECIMAL(10, 2) NOT NULL,
     currency VARCHAR(10) NOT NULL DEFAULT 'PKR',
     amount_paid DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     amount_remaining DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    status ENUM('PENDING', 'PARTIALLY_PAID', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'PENDING',
-    payment_method VARCHAR(50) NOT NULL DEFAULT 'COD', -- 'COD', 'FARM_PICKUP'
+    status ENUM('UNPAID', 'PAID') NOT NULL DEFAULT 'UNPAID',
     proof_url VARCHAR(500) NULL, -- for physical COD receipt / delivery slip upload
-    webhook_payload JSON NULL,
-    refund_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    refund_reason TEXT NULL,
     admin_notes TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
     INDEX idx_payment_order (order_id),
-    INDEX idx_payment_status (status)
+    INDEX idx_payment_status (status),
+    INDEX idx_payment_receipt (receipt_number)
 ) ENGINE=InnoDB;
 
 -- -------------------------------------------------------
@@ -345,14 +344,13 @@ CREATE TABLE notifications (
 -- -------------------------------------------------------
 CREATE TABLE password_resets (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) NULL,
-    phone VARCHAR(50) NULL,
-    otp_hash VARCHAR(255) NOT NULL,
-    expires_at DATETIME NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    reset_token_hash VARCHAR(64) NOT NULL,
+    token_expires_at DATETIME NOT NULL,
     attempts INT DEFAULT 0,
     used BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_pwd_resets_email (email),
-    INDEX idx_pwd_resets_phone (phone)
+    INDEX idx_pwd_resets_token_hash (reset_token_hash)
 ) ENGINE=InnoDB;
 

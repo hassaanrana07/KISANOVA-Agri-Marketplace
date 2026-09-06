@@ -18,25 +18,24 @@ class PaymentService {
    * Create an initial payment record for an order (COD or FARM_PICKUP)
    */
   async createPaymentRecord({ orderId, amount, paymentMethod = 'COD' }) {
+    const crypto = require('crypto');
     const formattedAmount = parseFloat(amount).toFixed(2);
     const validMethod = paymentMethod === 'FARM_PICKUP' ? 'FARM_PICKUP' : 'COD';
-    const provider = validMethod === 'FARM_PICKUP' ? 'farm_gate_pickup' : 'cash_on_delivery';
-    const reference = `${validMethod}-${orderId}-${Date.now().toString().slice(-6)}`;
+    const receiptNumber = `REC-${orderId}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
     const [result] = await pool.query(
       `INSERT INTO payments 
-        (order_id, payment_provider, transaction_reference, amount, currency, amount_paid, amount_remaining, status, payment_method)
-       VALUES (?, ?, ?, ?, ?, 0.00, ?, 'PENDING', ?)`,
-      [orderId, provider, reference, formattedAmount, this.currency, formattedAmount, validMethod]
+        (order_id, receipt_number, amount, currency, amount_paid, amount_remaining, status, payment_method)
+       VALUES (?, ?, ?, ?, 0.00, ?, 'UNPAID', ?)`,
+      [orderId, receiptNumber, formattedAmount, this.currency, formattedAmount, validMethod]
     );
 
     return {
       paymentId: result.insertId,
-      provider: validMethod,
-      transactionReference: reference,
+      receiptNumber,
       amount: formattedAmount,
       currency: this.currency,
-      status: 'PENDING',
+      status: 'UNPAID',
       paymentMethod: validMethod,
       instruction: validMethod === 'FARM_PICKUP'
         ? 'Payment will be made directly to the seller in cash upon farm gate pickup.'
@@ -97,8 +96,10 @@ class PaymentService {
 
     const payment = payments.length > 0 ? payments[0] : null;
 
+    const receiptNumber = payment?.receipt_number || `REC-${order.order_number}`;
+
     return {
-      receiptNumber: `RCP-${order.order_number}`,
+      receiptNumber,
       orderNumber: order.order_number,
       orderDate: order.created_at,
       buyerName: order.delivery_name || order.buyer_name,
@@ -112,7 +113,6 @@ class PaymentService {
       pickupInstructions: order.pickup_instructions || null,
       paymentMethod: order.payment_method || (payment ? payment.payment_method : 'COD'),
       paymentStatus: order.payment_status,
-      transactionReference: order.transaction_reference || (payment ? payment.transaction_reference : 'N/A'),
       totalAmount: parseFloat(order.total_amount),
       amountPaid: parseFloat(order.amount_paid || 0),
       amountRemaining: parseFloat(order.amount_remaining || order.total_amount),
@@ -149,7 +149,7 @@ class PaymentService {
     }
 
     const [payments] = await pool.query(
-      `SELECT id, order_id, payment_provider, transaction_reference, amount, currency, 
+      `SELECT id, order_id, receipt_number, amount, currency, 
               amount_paid, amount_remaining, status, payment_method, created_at, updated_at 
        FROM payments 
        WHERE order_id = ? 

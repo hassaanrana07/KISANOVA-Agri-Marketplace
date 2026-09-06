@@ -8,7 +8,7 @@ const generateToken = (user) => {
   return jwt.sign(
     { id: user.id, email: user.email, role: user.role },
     getJwtSecret(),
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d', algorithm: 'HS256' }
   );
 };
 
@@ -380,8 +380,8 @@ const forgotPassword = async (req, res) => {
 
     // Save to password_resets table with 15-minute expiry
     await pool.query(
-      `INSERT INTO password_resets (email, reset_token_hash, expires_at, token_expires_at, attempts, used)
-       VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE), DATE_ADD(NOW(), INTERVAL 15 MINUTE), 0, FALSE)`,
+      `INSERT INTO password_resets (email, reset_token_hash, token_expires_at, attempts, used)
+       VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 15 MINUTE), 0, FALSE)`,
       [user.email, resetTokenHash]
     );
 
@@ -393,14 +393,6 @@ const forgotPassword = async (req, res) => {
       clientBaseUrl = 'http://localhost:5174';
     }
     const devResetUrl = `${clientBaseUrl}/reset-password?token=${resetToken}`;
-
-    console.log(`\n================================================================`);
-    console.log(`🔑 [PASSWORD RESET TOKEN GENERATED]`);
-    console.log(`User: ${user.email} (${user.role})`);
-    console.log(`Reset Token: ${resetToken}`);
-    console.log(`Direct Reset URL: ${devResetUrl}`);
-    console.log(`Expires in: 15 minutes`);
-    console.log(`================================================================\n`);
 
     // In development/test mode, provide reset token/url to simplify local testing and frontend inspection
     if (process.env.NODE_ENV !== 'production') {
@@ -466,7 +458,7 @@ const resetPassword = async (req, res) => {
     }
 
     const resetRecord = tokenRecords[0];
-    const expiryDate = new Date(resetRecord.token_expires_at || resetRecord.expires_at);
+    const expiryDate = new Date(resetRecord.token_expires_at);
 
     if (expiryDate < new Date()) {
       return res.status(400).json({

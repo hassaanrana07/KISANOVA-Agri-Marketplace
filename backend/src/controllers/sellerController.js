@@ -25,7 +25,9 @@ const getDashboardMetrics = async (req, res) => {
          COUNT(so.id) as total_orders,
          COALESCE(SUM(CASE WHEN so.status IN ('PENDING', 'CONFIRMED', 'PROCESSING', 'READY_FOR_PICKUP') THEN 1 ELSE 0 END), 0) as pending_orders,
          COALESCE(SUM(CASE WHEN so.status IN ('DELIVERED', 'PICKED_UP') THEN 1 ELSE 0 END), 0) as completed_orders,
+         COALESCE(SUM(CASE WHEN so.status = 'CANCELLED' THEN 1 ELSE 0 END), 0) as cancelled_orders,
          COALESCE(SUM(CASE WHEN so.status != 'CANCELLED' THEN so.subtotal + COALESCE(so.delivery_fee, 0) ELSE 0 END), 0) as gross_order_value,
+         COALESCE(SUM(CASE WHEN so.status = 'CANCELLED' THEN so.subtotal + COALESCE(so.delivery_fee, 0) ELSE 0 END), 0) as cancelled_sales,
          COALESCE(SUM(CASE WHEN so.payment_status = 'PAID' THEN so.subtotal + COALESCE(so.delivery_fee, 0) ELSE 0 END), 0) as cash_collected,
          COALESCE(SUM(CASE WHEN so.payment_status != 'PAID' AND so.status != 'CANCELLED' AND so.payment_method = 'COD' THEN so.subtotal + COALESCE(so.delivery_fee, 0) ELSE 0 END), 0) as pending_cod_amount,
          COALESCE(SUM(CASE WHEN so.status != 'CANCELLED' AND (so.payment_method = 'FARM_PICKUP' OR so.fulfillment_method = 'PICKUP') THEN so.subtotal ELSE 0 END), 0) as farm_pickup_amount
@@ -116,7 +118,9 @@ const getDashboardMetrics = async (req, res) => {
           totalOrders: Number(stats.total_orders || 0),
           pendingOrders: Number(stats.pending_orders || 0),
           completedOrders: Number(stats.completed_orders || 0),
+          cancelledOrders: Number(stats.cancelled_orders || 0),
           grossOrderValue,
+          cancelledSales: parseFloat(stats.cancelled_sales || 0),
           cashCollected,
           pendingCodAmount,
           farmPickupAmount,
@@ -433,12 +437,10 @@ const getSellerOrders = async (req, res) => {
         o.delivery_address,
         o.delivery_notes,
         COALESCE(so.payment_method, o.payment_method) as payment_method,
-        COALESCE(so.online_provider, o.online_provider) as online_provider,
         COALESCE(so.payment_status, o.payment_status) as payment_status,
         COALESCE(so.amount_due, so.subtotal + COALESCE(so.delivery_fee, 0)) as amount_due,
         COALESCE(so.amount_paid, 0.00) as amount_paid,
         COALESCE(so.amount_remaining, so.subtotal + COALESCE(so.delivery_fee, 0) - COALESCE(so.amount_paid, 0.00)) as amount_remaining,
-        COALESCE(so.transaction_reference, o.transaction_reference) as transaction_reference,
         COUNT(oi.id) as items_count
       FROM seller_orders so
       JOIN orders o ON so.order_id = o.id
@@ -491,12 +493,10 @@ const getSellerOrderById = async (req, res) => {
          o.delivery_address,
          o.delivery_notes,
          COALESCE(so.payment_method, o.payment_method) as payment_method,
-         COALESCE(so.online_provider, o.online_provider) as online_provider,
          COALESCE(so.payment_status, o.payment_status) as payment_status,
          COALESCE(so.amount_due, so.subtotal + COALESCE(so.delivery_fee, 0)) as amount_due,
          COALESCE(so.amount_paid, 0.00) as amount_paid,
          COALESCE(so.amount_remaining, so.subtotal + COALESCE(so.delivery_fee, 0) - COALESCE(so.amount_paid, 0.00)) as amount_remaining,
-         COALESCE(so.transaction_reference, o.transaction_reference) as transaction_reference,
          COALESCE(so.fulfillment_method, o.fulfillment_method, 'DELIVERY') as fulfillment_method,
          COALESCE(so.delivery_fee, 0) as delivery_fee,
          u.name as buyer_name,
@@ -682,7 +682,7 @@ const updateSellerOrderPaymentStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Seller profile not found.' });
     }
 
-    const validPaymentStatuses = ['UNPAID', 'PARTIALLY_PAID', 'PAID'];
+    const validPaymentStatuses = ['UNPAID', 'PAID'];
     if (!validPaymentStatuses.includes(payment_status)) {
       return res.status(400).json({
         success: false,
@@ -702,14 +702,7 @@ const updateSellerOrderPaymentStatus = async (req, res) => {
     const subOrder = subOrders[0];
     const orderTotal = parseFloat(subOrder.subtotal) + parseFloat(subOrder.delivery_fee || 0);
 
-    let resolvedPaid = 0.00;
-    if (payment_status === 'PAID') {
-      resolvedPaid = orderTotal;
-    } else if (payment_status === 'PARTIALLY_PAID') {
-      resolvedPaid = amount_paid ? parseFloat(amount_paid) : (orderTotal / 2);
-    } else {
-      resolvedPaid = 0.00;
-    }
+    const resolvedPaid = payment_status === 'PAID' ? orderTotal : 0.00;
     const resolvedRemaining = Math.max(0, orderTotal - resolvedPaid);
 
     await pool.query(
@@ -726,19 +719,17 @@ const updateSellerOrderPaymentStatus = async (req, res) => {
     );
 
     const allPaid = siblingOrders.every(s => s.payment_status === 'PAID');
-    const anyPaidOrPartial = siblingOrders.some(s => s.payment_status === 'PAID' || s.payment_status === 'PARTIALLY_PAID');
     const totalParentPaid = siblingOrders.reduce((sum, s) => sum + parseFloat(s.amount_paid || 0), 0);
-
-    let parentStatus = 'UNPAID';
-    if (allPaid) {
-      parentStatus = 'PAID';
-    } else if (anyPaidOrPartial) {
-      parentStatus = 'PARTIALLY_PAID';
-    }
+    const parentStatus = allPaid ? 'PAID' : 'UNPAID';
 
     await pool.query(
-      'UPDATE orders SET payment_status = ?, amount_paid = ?, updated_at = NOW() WHERE id = ?',
-      [parentStatus, totalParentPaid, subOrder.order_id]
+      'UPDATE orders SET payment_status = ?, amount_paid = ?, amount_remaining = GREATEST(0, total_amount - ?), updated_at = NOW() WHERE id = ?',
+      [parentStatus, totalParentPaid, totalParentPaid, subOrder.order_id]
+    );
+
+    await pool.query(
+      'UPDATE payments SET status = ?, amount_paid = ?, amount_remaining = GREATEST(0, amount - ?), updated_at = NOW() WHERE order_id = ?',
+      [parentStatus, totalParentPaid, totalParentPaid, subOrder.order_id]
     );
 
     return res.json({
@@ -816,8 +807,8 @@ const updateSellerProfile = async (req, res) => {
     const resolvedCalculatedAcreage = calculated_polygon_area_acres !== undefined ? calculated_polygon_area_acres : req.body.calculated_acreage;
 
     let normalizedPayoutMethod = payout_method ? payout_method.toUpperCase() : null;
-    if (normalizedPayoutMethod === 'BANK_ACCOUNT' || normalizedPayoutMethod === 'BANK') {
-      normalizedPayoutMethod = 'BANK_TRANSFER';
+    if (normalizedPayoutMethod === 'BANK') {
+      normalizedPayoutMethod = 'BANK_ACCOUNT';
     }
 
     let reverificationRequired = false;
