@@ -82,13 +82,28 @@ export const CartProvider = ({ children }) => {
       // First, if there was a guest cart before logging in, sync items to backend
       const guestCart = localStorage.getItem('kisanova_guest_cart');
       if (guestCart) {
-        const parsedGuest = JSON.parse(guestCart);
-        for (const itm of parsedGuest) {
-          try {
-            await api.post('/cart', { product_id: itm.product_id, quantity: itm.quantity });
-          } catch (e) {}
+        let parsedGuest = [];
+        try {
+          parsedGuest = JSON.parse(guestCart);
+        } catch (parseErr) {
+          console.error('Invalid guest cart JSON in localStorage:', parseErr);
         }
-        localStorage.removeItem('kisanova_guest_cart');
+        const failedItems = [];
+        if (Array.isArray(parsedGuest)) {
+          for (const itm of parsedGuest) {
+            try {
+              await api.post('/cart', { product_id: itm.product_id, quantity: itm.quantity });
+            } catch (e) {
+              console.warn(`Failed to sync guest cart item ${itm.product_id} to backend:`, e?.response?.data?.message || e.message);
+              failedItems.push(itm);
+            }
+          }
+        }
+        if (failedItems.length > 0) {
+          localStorage.setItem('kisanova_guest_cart', JSON.stringify(failedItems));
+        } else {
+          localStorage.removeItem('kisanova_guest_cart');
+        }
       }
 
       const res = await api.get('/cart');
@@ -130,7 +145,7 @@ export const CartProvider = ({ children }) => {
       const current = [...items];
       const existingIndex = current.findIndex(i => (i.product_id || i.id) === product.id);
 
-      if (existingIndex > 0 || existingIndex === 0) {
+      if (existingIndex >= 0) {
         current[existingIndex].quantity = parseFloat(current[existingIndex].quantity) + qty;
       } else {
         current.push({
@@ -206,7 +221,9 @@ export const CartProvider = ({ children }) => {
         setGroupedBySeller([]);
         setGrandTotal(0);
         setTotalItemsCount(0);
-      } catch (err) {}
+      } catch (err) {
+        console.error('Failed to clear backend cart:', err);
+      }
     } else {
       localStorage.removeItem('kisanova_guest_cart');
       setItems([]);

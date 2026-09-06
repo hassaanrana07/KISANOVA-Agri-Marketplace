@@ -39,7 +39,7 @@ const PrivacyPolicyPage = () => {
             2. How We Use and Protect Your Data
           </h2>
           <p>
-            Your information is used strictly for fulfilling agricultural purchases, coordinating logistics dispatch, verifying seller legitimacy, and securing payment settlements.
+            Your information is used strictly for fulfilling agricultural purchases, coordinating logistics dispatch, verifying seller legitimacy, and securing order fulfillment and payment collection.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">

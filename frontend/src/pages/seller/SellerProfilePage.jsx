@@ -149,7 +149,7 @@ const SellerProfilePage = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900">{t('profile.title', 'Farm Profile & Settings')}</h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            {isRTL ? 'اپنے فارم کا برانڈ نام، پٹوار رقبہ، باؤنڈری نقشہ، ترسیلی شرائط اور اکاؤنٹ کی ترتیبات منظم کریں۔' : 'Manage your agricultural brand identity, administrative location hierarchy, farm polygon boundaries, fulfillment terms, and payout routing.'}
+            {isRTL ? 'اپنے فارم کا برانڈ نام، پٹوار رقبہ، باؤنڈری نقشہ، ترسیلی شرائط اور اکاؤنٹ کی ترتیبات منظم کریں۔' : 'Manage your agricultural brand identity, administrative location hierarchy, farm polygon boundaries, fulfillment terms, and operational settings.'}
           </p>
         </div>
 

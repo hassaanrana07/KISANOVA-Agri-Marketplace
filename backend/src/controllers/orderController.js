@@ -329,18 +329,19 @@ const checkout = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: parentPaymentMethod === 'FARM_PICKUP'
+      message: parentFulfillment === 'PICKUP'
         ? 'Order placed successfully for Farm Gate Self-Pickup.'
         : 'Order placed successfully with Cash on Delivery.',
       data: {
         orderId: parentOrderId,
         orderNumber,
+        subtotal: itemsSubtotal,
         itemsSubtotal,
         deliveryFee: totalDeliveryFee,
         totalAmount: grandTotal,
         currency: 'PKR',
         fulfillmentMethod: parentFulfillment,
-        paymentMethod: parentPaymentMethod,
+        paymentMethod: 'COD',
         paymentStatus: 'UNPAID',
         sellerCount: Object.keys(sellerGroups).length
       }

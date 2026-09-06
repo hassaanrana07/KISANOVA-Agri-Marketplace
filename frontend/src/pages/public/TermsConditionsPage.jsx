@@ -46,7 +46,7 @@ const TermsConditionsPage = () => {
         <section className="space-y-3">
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-agro-600" />
-            3. Payment Methods & Settlement
+            3. Payment Methods & Cash on Delivery (COD)
           </h2>
           <p>
             Orders can be completed via <strong>Cash on Delivery (COD)</strong> for dispatched deliveries or <strong>Farm Gate Self-Pickup</strong> for in-person harvest collections directly at the farmer's physical premises.
@@ -62,7 +62,7 @@ const TermsConditionsPage = () => {
             4. Dispute Resolution & Platform Integrity
           </h2>
           <p>
-            In the event of crop spoilage, weight discrepancies, or transit damage, buyers can submit an inspection dispute within 48 hours of delivery receipt. Kisanova administrators will review field chat proofs and weigh scales to arbitrate fair settlement or replacement.
+            In the event of crop spoilage, weight discrepancies, or transit damage, buyers can submit an inspection dispute within 48 hours of delivery receipt. Kisanova administrators will review field chat proofs and weigh scales to arbitrate fair resolution or replacement.
           </p>
         </section>
       </div>

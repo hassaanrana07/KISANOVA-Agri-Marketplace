@@ -207,7 +207,7 @@ const SellerOrderDetailPage = () => {
             </div>
             <div>
               <h3 className="font-bold text-sm text-white">{t('order.cod_accounting', 'Cash on Delivery Accounting Ledger')}</h3>
-              <p className="text-[11px] text-slate-400">{t('order.cod_accounting_desc', 'Financial settlement status for this farm dispatch order')}</p>
+              <p className="text-[11px] text-slate-400">{t('order.cod_accounting_desc', 'Payment collection status for this farm dispatch order')}</p>
             </div>
           </div>
           <span className={`self-start sm:self-auto px-3 py-1 rounded-full text-xs font-bold border ${getPaymentBadge(order.payment_status)}`}>

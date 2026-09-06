@@ -114,7 +114,9 @@ const FarmLocationMap = ({
         // Fit map bounds to encompass the farm polygon
         try {
           map.fitBounds(polygon.getBounds(), { padding: [20, 20] });
-        } catch (e) {}
+        } catch (e) {
+          console.warn('Could not fit map bounds:', e);
+        }
       }
 
       mapInstanceRef.current = map;
