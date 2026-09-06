@@ -513,10 +513,10 @@ const CheckoutPage = () => {
             buyerName: deliveryName,
             buyerPhone: deliveryPhone,
             deliveryAddress: deliveryAddress,
-            paymentMethod: fulfillmentType === 'FARM_PICKUP' ? 'FARM_PICKUP' : 'COD',
+            paymentMethod: 'COD',
             paymentStatus: 'UNPAID',
             orderStatus: 'PENDING',
-            fulfillmentMethod: fulfillmentType === 'FARM_PICKUP' ? 'FARM_PICKUP' : 'DELIVERY',
+            fulfillmentMethod: orderSuccessData.fulfillmentMethod || fulfillmentMethod || 'DELIVERY',
             totalAmount: orderSuccessData.totalAmount,
             items: []
           }}
