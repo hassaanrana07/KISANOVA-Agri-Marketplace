@@ -12,6 +12,8 @@ const adminRoutes = require('./routes/adminRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const { publicLimiter } = require('./middleware/rateLimiter');
+const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -61,11 +63,57 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
 
-// Serve uploaded media statically for local file storage fallback
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Secure static uploads serving with strict execution prevention
+const allowedMediaExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.mp4', '.webm']);
+const safeMimeTypes = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm'
+};
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+app.use('/uploads', (req, res, next) => {
+  // Prevent directory traversal or null byte injections
+  if (req.path.includes('..') || req.path.includes('\0')) {
+    return res.status(403).json({ success: false, message: 'Access denied.' });
+  }
+
+  // Strictly enforce extension whitelist: reject .php, .html, .js, .svg, or root directory access
+  const ext = path.extname(req.path).toLowerCase();
+  if (!allowedMediaExtensions.has(ext)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied: Direct access to non-media files is forbidden.'
+    });
+  }
+
+  next();
+}, express.static(path.join(__dirname, '../uploads'), {
+  dotfiles: 'ignore',
+  etag: true,
+  index: false,
+  setHeaders: (res, filePath) => {
+    // Prevent MIME-type sniffing
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // Isolate document execution environment (sandboxed, zero script execution)
+    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
+    const ext = path.extname(filePath).toLowerCase();
+    if (safeMimeTypes[ext]) {
+      res.setHeader('Content-Type', safeMimeTypes[ext]);
+    } else {
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment');
+    }
+  }
+}));
+
+// Health check endpoint (Moderate Public Rate Limit)
+app.get('/api/health', publicLimiter, (req, res) => {
   res.json({
     success: true,
     service: 'Kisanova Agricultural Marketplace API',
@@ -76,7 +124,7 @@ app.get('/api/health', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes);
+app.use('/api/products', publicLimiter, productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/seller', sellerRoutes);
@@ -85,26 +133,15 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-// 404 handler for undefined API routes
-app.use('/api/*', (req, res) => {
+// 404 handler for undefined routes
+app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     message: `API endpoint not found: ${req.method} ${req.originalUrl}`
   });
 });
 
-// Global Error Handler
-app.use((err, req, res, next) => {
-  console.error('Unhandled Application Error:', err);
-
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal server error occurred.';
-
-  res.status(statusCode).json({
-    success: false,
-    message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+// Centralized Error Handler (prevents stack traces & information leakage)
+app.use(errorHandler);
 
 module.exports = app;

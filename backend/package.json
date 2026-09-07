@@ -6,7 +6,14 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "seed": "node ../database/seed.js"
+    "seed": "node ../database/seed.js",
+    "test": "node test_rate_limiting.js && node test_validation.js && node test_secrets_audit.js && node test_dependency_audit.js && node test_error_handling.js && node test_file_upload_safety.js",
+    "test:rate-limit": "node test_rate_limiting.js",
+    "test:validation": "node test_validation.js",
+    "test:secrets": "node test_secrets_audit.js",
+    "test:dependency-audit": "node test_dependency_audit.js",
+    "test:error-handling": "node test_error_handling.js",
+    "test:upload-safety": "node test_file_upload_safety.js"
   },
   "keywords": [
     "agricultural",
@@ -19,14 +26,14 @@
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "cloudinary": "^2.1.0",
+    "cloudinary": "^2.11.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
-    "multer": "^1.4.5-lts.1",
-    "mysql2": "^3.9.7",
+    "multer": "^1.4.5-lts.2",
+    "mysql2": "^3.9.8",
     "socket.io": "^4.8.3"
   }
 }

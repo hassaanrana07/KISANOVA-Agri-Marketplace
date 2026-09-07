@@ -44,10 +44,22 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: Handle 401 Unauthorized per isolated portal
+// Response interceptor: Handle 401 Unauthorized and sanitize response messages against leaks
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Information leakage defense: sanitize any raw server leak before reaching components/toasts
+    if (error.response?.data) {
+      const sensitiveLeakPattern = /(?:ER_[A-Z0-9_]+|SQLSTATE|Table '[^']+'|at (?:[a-zA-Z]:|[/\\])|TypeError:|ReferenceError:|node_modules)/i;
+      const originalMessage = error.response.data.message;
+      if (typeof originalMessage === 'string' && sensitiveLeakPattern.test(originalMessage)) {
+        error.response.data.message = 'An unexpected server error occurred. Please try again.';
+      }
+      delete error.response.data.stack;
+      delete error.response.data.sql;
+      delete error.response.data.sqlMessage;
+    }
+
     if (error.response && error.response.status === 401) {
       const url = error.config?.url || '';
       const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';

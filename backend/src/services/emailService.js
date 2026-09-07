@@ -20,9 +20,14 @@ class EmailService {
   }
 
   getSender() {
+    const email = process.env.BREVO_SENDER_EMAIL || 'noreply@kisanova.com';
+    const name = process.env.BREVO_SENDER_NAME || 'Kisanova';
+    if (process.env.NODE_ENV === 'production' && (!process.env.BREVO_SENDER_EMAIL || !process.env.BREVO_SENDER_EMAIL.trim())) {
+      throw new Error('FATAL CONFIGURATION ERROR: BREVO_SENDER_EMAIL environment variable is required in production.');
+    }
     return {
-      email: process.env.BREVO_SENDER_EMAIL || 'hassaanrana429@gmail.com',
-      name: process.env.BREVO_SENDER_NAME || 'Kisanova'
+      email: email.trim(),
+      name: name.trim()
     };
   }
 

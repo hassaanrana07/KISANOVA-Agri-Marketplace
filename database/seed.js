@@ -39,10 +39,10 @@ async function seed() {
 
     console.log('✅ Cleaned previous records');
 
-    // 1. Hash Passwords
-    const adminPass = await bcrypt.hash('Admin@123456', 10);
-    const sellerPass = await bcrypt.hash('Seller@123456', 10);
-    const buyerPass = await bcrypt.hash('Buyer@123456', 10);
+    // 1. Hash Passwords (configurable via environment variables)
+    const adminPass = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD || 'Admin@123456', 10);
+    const sellerPass = await bcrypt.hash(process.env.SEED_SELLER_PASSWORD || 'Seller@123456', 10);
+    const buyerPass = await bcrypt.hash(process.env.SEED_BUYER_PASSWORD || 'Buyer@123456', 10);
 
     // 2. Insert Users
     const [adminUser] = await conn.query(

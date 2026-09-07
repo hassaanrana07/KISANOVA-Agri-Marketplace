@@ -72,9 +72,16 @@ const requireAuth = async (req, res, next) => {
         message: 'Token has expired. Please log in again.'
       });
     }
-    return res.status(401).json({
+    if (error.name === 'JsonWebTokenError' || error.name === 'NotBeforeError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token.'
+      });
+    }
+    console.error('[AuthMiddleware] Internal authentication error:', error);
+    return res.status(500).json({
       success: false,
-      message: 'Invalid authentication token.'
+      message: 'Internal server error during authentication.'
     });
   }
 };

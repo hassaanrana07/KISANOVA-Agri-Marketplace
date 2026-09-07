@@ -25,8 +25,27 @@ process.on('SIGTERM', () => {
   });
 });
 
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection! Shutting down...', err);
+// Process-level unhandled exception & rejection handlers for server-side diagnostics
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL UNCAUGHT EXCEPTION]', {
+    timestamp: new Date().toISOString(),
+    name: err.name,
+    message: err.message,
+    stack: err.stack
+  });
+  // Terminate after logging fatal uncaught exception
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[UNHANDLED PROMISE REJECTION]', {
+    timestamp: new Date().toISOString(),
+    reason: reason instanceof Error ? {
+      name: reason.name,
+      message: reason.message,
+      stack: reason.stack
+    } : reason
+  });
 });
 
 module.exports = { app, server, io };

@@ -7,12 +7,19 @@ const {
   deleteNotification
 } = require('../controllers/notificationController');
 const { requireAuth } = require('../middleware/auth');
+const { authenticatedLimiter } = require('../middleware/rateLimiter');
+const { validate } = require('../middleware/validator');
+const {
+  notificationIdParamSchema,
+  getNotificationsQuerySchema
+} = require('../validators/notificationSchemas');
 
 router.use(requireAuth);
+router.use(authenticatedLimiter);
 
-router.get('/', getNotifications);
+router.get('/', validate({ query: getNotificationsQuerySchema }), getNotifications);
 router.put('/read-all', markAllAsRead);
-router.put('/:id/read', markAsRead);
-router.delete('/:id', deleteNotification);
+router.put('/:id/read', validate({ params: notificationIdParamSchema }), markAsRead);
+router.delete('/:id', validate({ params: notificationIdParamSchema }), deleteNotification);
 
 module.exports = router;

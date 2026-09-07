@@ -189,8 +189,7 @@ const register = async (req, res) => {
     console.error('Registration error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to register account.',
-      error: error.message
+      message: 'Failed to register account.'
     });
   } finally {
     connection.release();

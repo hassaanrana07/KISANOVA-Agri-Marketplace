@@ -264,7 +264,7 @@ const createProduct = async (req, res) => {
   } catch (error) {
     await connection.rollback();
     console.error('Error creating product:', error);
-    return res.status(500).json({ success: false, message: 'Failed to create product.', error: error.message });
+    return res.status(500).json({ success: false, message: 'Failed to create product.' });
   } finally {
     connection.release();
   }
@@ -919,7 +919,7 @@ const uploadMediaFile = async (req, res) => {
     });
   } catch (error) {
     console.error('Upload media error:', error);
-    return res.status(500).json({ success: false, message: 'Media upload failed: ' + error.message });
+    return res.status(500).json({ success: false, message: 'Media upload failed. Please try again.' });
   }
 };
 

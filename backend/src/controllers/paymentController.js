@@ -14,9 +14,18 @@ const getOrderReceipt = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching receipt:', error);
-    return res.status(403).json({
+    if (error.message === 'Order not found.') {
+      return res.status(404).json({ success: false, message: 'Order not found.' });
+    }
+    if (error.message && error.message.includes('Access denied')) {
+      return res.status(403).json({ success: false, message: error.message });
+    }
+    if (error.message === 'Seller profile not found.') {
+      return res.status(404).json({ success: false, message: 'Seller profile not found.' });
+    }
+    return res.status(500).json({
       success: false,
-      message: error.message || 'Failed to retrieve payment receipt.'
+      message: 'Failed to retrieve payment receipt.'
     });
   }
 };
@@ -38,7 +47,20 @@ const getPaymentStatus = async (req, res) => {
       data: payment
     });
   } catch (error) {
-    return res.status(403).json({ success: false, message: error.message || 'Failed to retrieve payment status.' });
+    console.error('Error fetching payment status:', error);
+    if (error.message === 'Order not found.') {
+      return res.status(404).json({ success: false, message: 'Order not found.' });
+    }
+    if (error.message && error.message.includes('Access denied')) {
+      return res.status(403).json({ success: false, message: error.message });
+    }
+    if (error.message === 'Seller profile not found.') {
+      return res.status(404).json({ success: false, message: 'Seller profile not found.' });
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve payment status.'
+    });
   }
 };
 

@@ -395,11 +395,12 @@ async function runProductionTests() {
     });
     assert(sampleHtml.includes('KISANOVA') && sampleHtml.includes('Verify Email Address'), 'Brevo email template renders branded HTML CTA');
     const sender = emailService.getSender();
-    assert(sender.email === 'hassaanrana429@gmail.com' && sender.name === 'Kisanova', 'Brevo verified sender configured correctly');
+    const expectedSenderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@kisanova.com';
+    assert(sender.email === expectedSenderEmail && sender.name === (process.env.BREVO_SENDER_NAME || 'Kisanova'), 'Brevo verified sender configured correctly');
 
     // 2.14 Live Brevo API Dispatch
     const liveDispatchResult = await emailService.sendVerificationEmail({
-      toEmail: 'hassaanrana429@gmail.com',
+      toEmail: process.env.BREVO_TEST_RECIPIENT || 'test@example.com',
       toName: 'Kisanova Admin Live Test',
       rawToken: crypto.randomBytes(32).toString('hex'),
       role: 'BUYER'

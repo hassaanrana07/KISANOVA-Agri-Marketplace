@@ -7,13 +7,21 @@ const {
   sendMessage
 } = require('../controllers/chatController');
 const { requireAuth } = require('../middleware/auth');
-const upload = require('../middleware/upload');
+const { upload, validateUploadedFiles } = require('../middleware/upload');
+const { authenticatedLimiter } = require('../middleware/rateLimiter');
+const { validate } = require('../middleware/validator');
+const {
+  createConversationSchema,
+  sendMessageSchema,
+  conversationIdParamSchema
+} = require('../validators/chatSchemas');
 
 router.use(requireAuth);
+router.use(authenticatedLimiter);
 
 router.get('/conversations', getUserConversations);
-router.post('/conversations', getOrCreateConversation);
-router.get('/conversations/:conversationId/messages', getMessages);
-router.post('/conversations/:conversationId/messages', upload.single('file'), sendMessage);
+router.post('/conversations', validate({ body: createConversationSchema }), getOrCreateConversation);
+router.get('/conversations/:conversationId/messages', validate({ params: conversationIdParamSchema }), getMessages);
+router.post('/conversations/:conversationId/messages', upload.single('file'), validateUploadedFiles, validate({ params: conversationIdParamSchema, body: sendMessageSchema }), sendMessage);
 
 module.exports = router;

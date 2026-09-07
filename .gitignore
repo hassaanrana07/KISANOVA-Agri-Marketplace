@@ -3,14 +3,30 @@ node_modules/
 .pnp
 .pnp.js
 
-# Environment Variables & Secrets
+# Environment Variables & Secrets (Prevent all .env leaks across any subfolder)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-backend/.env
-frontend/.env
+.env.*
+*.env
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+
+# Private Keys, Certificates & Credentials
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.cer
+*.der
+id_rsa*
+id_ed25519*
+*credentials*.json
+*serviceAccount*.json
+secret*.json
+secrets/
 
 # Build outputs
 dist/
